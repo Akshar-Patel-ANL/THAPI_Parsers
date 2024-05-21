@@ -1,6 +1,22 @@
 import tree_sitter_c as tsc
-from tree_sitter import Language, Parser
+from tree_sitter import Language, Parser, Node
+from typing import Generator
 import sys
+from pprint import *
+
+
+def abstract_nodes(cursor) -> Generator:
+    while True:
+        if cursor.goto_first_child():
+            if cursor.node.is_named:
+                yield cursor.node
+        else:
+            if not cursor.goto_next_sibling():
+                break
+
+
+
+
 def main():
     # Handle command line args
     args: int = len(sys.argv)
@@ -24,7 +40,15 @@ def main():
     # Parse header file and store tree
     tree = parser.parse(bytes(input, "utf-8"))
 
-    print(tree.root_node.sexp())
+    # Initialize Cursor and run emit_yaml
+    cursor = tree.walk()
+    for node in abstract_nodes(cursor):
+        print(node.id)
+    # pprint.pp(str(tree.root_node))
+
 
 if __name__ == "__main__":
     main()
+
+
+# (translation_unit (declaration type: (primitive_type) declarator: (function_declarator declarator: (identifier) parameters: (parameter_list (parameter_declaration type: (primitive_type) declarator: (identifier))))) (declaration type: (primitive_type) declarator: (function_declarator declarator: (identifier) parameters: (parameter_list (parameter_declaration type: (primitive_type) declarator: (identifier))))))
