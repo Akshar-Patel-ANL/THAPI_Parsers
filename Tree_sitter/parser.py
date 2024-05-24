@@ -3,6 +3,7 @@ from tree_sitter import Language, Parser
 from typing import Generator
 from yaml import dump
 import sys
+import re
 
 source = ""  # Source code string variable
 
@@ -29,13 +30,8 @@ def parse_translation_unit(tree) -> dict:
                 entities.append(parse_decl(node))
             case _:
                 continue
-    yaml["entities"] = entities
+    yaml |= {"entities" : entities}
     return yaml
-
-
-# def is_function(node) -> bool:
-#     declarator = node.named_child(1)
-#     return declarator.type == "function_declarator"
 
 
 def emit_yaml(node) -> str:
@@ -45,67 +41,100 @@ def emit_yaml(node) -> str:
         case _:
             return "NOT SUPPORTED"
         
-def parse_decl(node) -> dict:
-    decl = {"kind" : "declaration"}
-    match node.named_child(1).type:
-        case "function_declarator":
-            return parse_func(node, decl)
-
-def parse_func(node, decl) -> dict:
-    # initialize source code and 
+def parse_decl(decl_node) -> dict:
     global source
-    cursor = node.walk()
+    decl = {"kind" : "declaration"} 
+    decl_type_node = decl_node.named_child(1) 
+    match decl_type_node.type:
+        case "function_declarator":
+            name_node = decl_type_node.named_child(0)
+            start = name_node.start_byte
+            end = name_node.end_byte
+            return decl | parse_func(decl_node) | {"name" : source[start:end]}
+
+def parse_func(func_node) -> dict:
+    # initialize source code, cursor, and dict
+    global source
+    cursor = func_node.walk()
+    func = {}
 
     # extract and record return type
     cursor.goto_descendant(1)   # node: type: `return type`
     start = cursor.node.start_byte
     end = cursor.node.end_byte
-    decl["type"] = {"kind" : source[start:end]}
+    func |= {"type" : {"kind" : source[start:end]}}
 
     # extract and record declarator
-
-    params = []
     cursor.goto_next_sibling()  # node: `function_declarator`
-    cursor.goto
-    decl["declarators"] = [{"kind" : "declarator",
+    cursor.goto_first_child()   # node: `declarator` : identifier
+    cursor.goto_next_sibling()  # node: `parameter` : parameter list
+
+    # extact and record params
+    params = parse_params(cursor.node)
+    func |= {"declarators" : [{"kind" : "declarator",
                             "indirect_type" :
                                 {"kind" : "function",
-                                 "params": params}}]
+                                 "params": params}}]}
+    
+    return func
 
+def parse_params(params_node) -> list:
+    params = []
+    # loop through and record parameters
+    for node in params_node.named_children:
+        param = {"kind" : "parameter"}
+        decl_node = node.named_child(1)
+        match decl_node.type:
+            case "identifier":
+                # extract and record param type
+                type_node = node.named_child(0)
+                start = type_node.start_byte
+                end = type_node.end_byte
+                param |= {"type" : {"kind" : type_node.type, "name" : source[start:end]}}
 
-    # # extract and append function name
-    # cursor.goto_descendant(3)   # node: 'identifier' for function
-    # start = cursor.node.start_byte
-    # end = cursor.node.end_byte
-    # entry += "\tName: \"" + source[start:end] + "\"\n"
-
-    # # extract and append return type
-    # cursor.goto_parent()    # node: `function_declarator` for function
-    # cursor.goto_previous_sibling()  # node: `primitive_type` or return type identifier for function
-    # start = cursor.node.start_byte
-    # end = cursor.node.end_byte
-    # entry += "\tReturn_Type: \"" + source[start:end] + "\"\n"
-
-    # # extract and append parameters
-    # entry += "\tParameters:\n"
-    # cursor.goto_next_sibling()  # node: `function_declarator` for function
-    # cursor.goto_descendant(3)   # node: `parameter_list` for function (under `parameters` node)
-    # for node in cursor.node.named_children:
-    #     type_node = node.named_children[0]
-    #     name_node = node.named_children[1]
-    #     # extract and append parameter name
-    #     start = name_node.start_byte
-    #     end = name_node.end_byte
-    #     entry += "\t\tName: \"" + source[start:end] + "\"\n"
-    #     # extract and append parameter type
-    #     start = type_node.start_byte
-    #     end = type_node.end_byte
-    #     entry += "\t\tType: \"" + source[start:end] + "\"\n"
-
-
-    # # return final entry
-    # return entry
-
+                # extract and append param name
+                start = decl_node.start_byte
+                end = decl_node.end_byte
+                param |= {"name" : source[start:end]}
+            case "pointer_declarator":
+                cursor = node.walk()
+                cursor.goto_first_child()   # node: `type`
+                cursor.goto_next_sibling()  # node: `declarator`: point_declarator
+                param |= parse_pointer_param(cursor)
+                # Travel down tree for param name
+                cursor.goto_next_sibling()
+                while cursor.goto_first_child():
+                    cursor.goto_next_sibling()
+                start = cursor.node.start_byte
+                end = cursor.node.end_byte
+                param |= {"name" : re.sub(r"\*| ", "", source[start:end])}
+            case _:
+                print("WARNING Unhandled function parameter type: " + decl_node.type)
+                exit(-1)
+        params.append(param)
+ 
+    
+    return params
+ 
+def parse_pointer_param(cursor):
+    match cursor.node.type:
+        case "identifier":
+            global source
+            # travel up the tree for the type pointed to
+            while True:
+                cursor.goto_parent()
+                if cursor.node.type != "pointer_declarator":
+                    break
+            cursor.goto_first_child()
+            start = cursor.node.start_byte
+            end = cursor.node.end_byte
+            return {"type" : {"kind" : source[start:end]}}
+        case "pointer_declarator":
+            cursor.goto_first_child()   # node: `*`
+            cursor.goto_next_sibling()  # node: next declarator (either pointer_declarator or indentifier)
+            return {"type" : {"kind" : "pointer"} | parse_pointer_param(cursor)}
+        case _:
+            print("WARNING Unexpected declarator in parse_pointer_param():" + cursor.node.type)
 
 
 def main():
@@ -134,11 +163,31 @@ def main():
 
     # Generate yaml and print it
     yaml = parse_translation_unit(tree.root_node)
-    print(dump(yaml))
-    # print(str(tree.root_node))
+    print(dump(yaml, sort_keys=False))
+    print(str(tree.root_node))
 
 if __name__ == "__main__":
     main()
 
+# EXAMPLE INPUT
+# void foo(int a);
+# int bar(double b);
+# EXAMPLE AST
+# (translation_unit
+#     (declaration
+#         type: (primitive_type)
+#         declarator: (function_declarator
+#             declarator: (identifier)
+#             parameters: (parameter_list
+#                 (parameter_declaration
+#                     type: (primitive_type)
+#                     declarator: (identifier)))))
+#     (declaration
+#         type: (primitive_type)
+#         declarator: (function_declarator
+#             declarator: (identifier)
+#             parameters: (parameter_list
+#                 (parameter_declaration
+#                     type: (primitive_type)
+#                     declarator: (identifier))))))
 
-# (translation_unit (declaration type: (primitive_type) declarator: (function_declarator declarator: (identifier) parameters: (parameter_list (parameter_declaration type: (primitive_type) declarator: (identifier))))) (declaration type: (primitive_type) declarator: (function_declarator declarator: (identifier) parameters: (parameter_list (parameter_declaration type: (primitive_type) declarator: (identifier))))))
