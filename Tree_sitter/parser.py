@@ -108,7 +108,6 @@ def parse_params(params_node) -> list:
                 start = type_node.start_byte
                 end = type_node.end_byte
                 param |= {"type": {"kind": type_node.type, "name": source[start:end]}}
-
                 # extract and append param name
                 start = decl_node.start_byte
                 end = decl_node.end_byte
@@ -172,7 +171,7 @@ def parse_typedef(node) -> dict:
     match type_node.type:
         case "type_identifier":
             type = {"kind": "custom_type", "name": source[start:end]}
-        case "primitive_type":
+        case "primitive_type": 
             type = {"kind": source[start:end]}
         case _:
             print(
@@ -219,7 +218,7 @@ def main():
     # Generate yaml and print it
     yaml = parse_translation_unit(tree.root_node)
     print(dump(yaml, sort_keys=False))
-    print(str(tree.root_node))
+    # print(str(tree.root_node))
 
 
 if __name__ == "__main__":
