@@ -21,6 +21,10 @@ source = ""  # Source code string variable
 #                 return
 
 
+
+###########################################################################
+"""----------------------parsing_translation_unit-----------------------"""
+###########################################################################
 def parse_translation_unit(tree) -> dict:
     yaml = {"kind": "translation_unit"}
     entities = []
@@ -28,19 +32,18 @@ def parse_translation_unit(tree) -> dict:
         match node.type:
             case "declaration":
                 entities.append(parse_decl(node))
+            case "type_definition":
+                entities.append(parse_typedef(node))
             case _:
                 continue
     yaml |= {"entities" : entities}
     return yaml
 
-
-def emit_yaml(node) -> str:
-    match node,named_child(1).type:
-        case "function_declarator":
-            return emit_yaml_func(node)
-        case _:
-            return "NOT SUPPORTED"
         
+
+###########################################################################
+"""------------------------parsing_declarations-------------------------"""
+###########################################################################
 def parse_decl(decl_node) -> dict:
     global source
     decl = {"kind" : "declaration"} 
@@ -51,7 +54,12 @@ def parse_decl(decl_node) -> dict:
             start = name_node.start_byte
             end = name_node.end_byte
             return decl | parse_func(decl_node) | {"name" : source[start:end]}
+        
 
+    
+###########################################################################
+"""-------------------------parsing_functions---------------------------"""
+###########################################################################
 def parse_func(func_node) -> dict:
     # initialize source code, cursor, and dict
     global source
@@ -78,6 +86,11 @@ def parse_func(func_node) -> dict:
     
     return func
 
+
+
+###########################################################################
+"""-------------------------parsing_parameters--------------------------"""
+###########################################################################
 def parse_params(params_node) -> list:
     params = []
     # loop through and record parameters
@@ -137,6 +150,17 @@ def parse_pointer_param(cursor):
             print("WARNING Unexpected declarator in parse_pointer_param():" + cursor.node.type)
 
 
+###########################################################################
+"""----------------------parsing_type_definitions-----------------------"""
+###########################################################################
+def parse_typedef(node):
+    pass
+
+
+
+###########################################################################
+"""----------------------------main_function----------------------------"""
+###########################################################################
 def main():
     global source
     # Handle command line args
