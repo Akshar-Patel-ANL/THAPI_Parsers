@@ -11,6 +11,54 @@ import re
 
 source = ""  # Source code string variable
 
+
+prim_types = {
+    # float
+    frozenset({"float"}) : ("float", 0, True),
+    frozenset({"double"}) : ("float", 1, True),
+    frozenset({"long", "double"}) : ("float", 2, True),
+    # int
+    frozenset({"int"}) : ("int", 0, True),
+    frozenset({"short"}) : ("int", -1, True),
+    frozenset({"long"}) : ("int", 1, True),
+    frozenset({"long", "long"}) : ("int", 2, True),
+    frozenset({"signed", "short"}) : ("int", -1, True),
+    frozenset({"signed", "long"}) : ("int", 1, True),
+    frozenset({"signed", "long", "long"}) : ("int", 2, True), 
+    frozenset({"unsigned", "short"}) : ("int", -1, False),
+    frozenset({"unsigned", "long"}) : ("int", 1, False),
+    frozenset({"unsigned", "long", "long"}) : ("int", 2, False),
+    # char
+    frozenset({"char"}) : ("char", 0, False),
+    frozenset({"signed", "char"}) : ("char", 0, True),
+    frozenset({"unsigned", "char"}) : ("char", 0, False)
+}
+
+def parse_type(type: str, name: str) -> dict:
+    if name == "void":
+        return {"kind" : "void"}
+    if type != "primitive_type" and type != "sized_type_specifier":
+        return {"kind" : "custom_type", "name" : name}
+
+    prim_dict = {}
+    type_toks = frozenset(name.split(" "))
+    kind, longness, signed = prim_types[type_toks]
+
+    prim_dict |= {"kind" : kind}
+    if longness != 0:
+        prim_dict |= {"longness" : longness}
+    if kind == "char" and signed == True:
+        prim_dict |= {"signed" : "true"}
+    if (kind == "int" or kind == "float") and signed == False:
+        prim_dict |= {"unsigned" : "true"}
+    
+    return prim_dict
+    
+    
+
+
+
+
 # # THIS CODE TRAVERSES ALL NODES (MIGHT NEED LATER SO DONT DELETE)
 # def extract_nodes(cursor) -> Generator:
 #     if not cursor.goto_first_child():
@@ -68,7 +116,7 @@ def parse_func(func_node) -> dict:
     cursor.goto_first_child()  # node: type: `return type`
     start = cursor.node.start_byte
     end = cursor.node.end_byte
-    func |= {"type": {"kind": source[start:end]}}
+    func |= {"type": parse_type(cursor.node.type, source[start:end])}
 
     # extract and record declarator
     cursor.goto_next_sibling()  # node: `function_declarator`
@@ -107,10 +155,7 @@ def parse_params(params_node) -> list:
                 type_node = node.named_child(0)
                 start = type_node.start_byte
                 end = type_node.end_byte
-                if type_node.type == "primitive_tive":
-                    param |= {"type" : {"kind" : source[start:end]}}
-                else:
-                    param |= {"type" : {"kind" : "custom_type", "name" : source[start:end]}}
+                param |= {"type" : parse_type(type_node.type, source[start:end])}
                 # extract and append param name
                 start = decl_node.start_byte
                 end = decl_node.end_byte
@@ -118,7 +163,7 @@ def parse_params(params_node) -> list:
             case "pointer_declarator":
                 cursor = node.walk()
                 cursor.goto_first_child()  # node: `type`
-                cursor.goto_next_sibling()  # node: `declarator`: point_declarator
+                cursor.goto_next_sibling()  # node: `declarator` point_declarator
                 param |= parse_pointer_param(cursor)
                 # Travel down tree for param name
                 cursor.goto_next_sibling()
@@ -147,7 +192,7 @@ def parse_pointer_param(cursor) -> dict:
             cursor.goto_first_child()
             start = cursor.node.start_byte
             end = cursor.node.end_byte
-            return {"type": {"kind": source[start:end]}}
+            return {"type": parse_type(cursor.node.type, source[start:end])}
         case "pointer_declarator":
             cursor.goto_first_child()  # node: `*`
             cursor.goto_next_sibling()  # node: next declarator (either pointer_declarator or indentifier)
@@ -171,17 +216,7 @@ def parse_typedef(node) -> dict:
     type_node = node.named_children[0]
     start = type_node.start_byte
     end = type_node.end_byte
-    match type_node.type:
-        case "type_identifier":
-            type = {"kind": "custom_type", "name": source[start:end]}
-        case "primitive_type": 
-            type = {"kind": source[start:end]}
-        case _:
-            print(
-                "WARNING Unexpected type being renamed in parse_typedef(): "
-                + type_node.type
-            )
-            exit(-1)
+    type = parse_type(type_node.type, source[start:end])
     # Extract renaming declarator
     decl_node = node.named_children[1]
     start = decl_node.start_byte

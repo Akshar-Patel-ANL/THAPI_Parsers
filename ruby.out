@@ -2,47 +2,22 @@
 kind: translation_unit
 entities:
 - kind: declaration
+  storage: :typedef
+  type:
+    kind: char
+  declarators:
+  - kind: declarator
+    indirect_type:
+      kind: pointer
+    name: string
+- kind: declaration
+  storage: :typedef
   type:
     kind: int
   declarators:
   - kind: declarator
     indirect_type:
-      kind: function
-      params:
-      - kind: parameter
-        type:
-          kind: char
-        name: first
-      - kind: parameter
-        type:
-          kind: float
-          longness: 1
-        name: second
-    name: foo
-- kind: declaration
-  type:
-    kind: float
-    longness: 1
-  declarators:
-  - kind: declarator
-    indirect_type:
-      kind: function
-      params:
-      - kind: parameter
-        type:
-          kind: int
-        name: first
-      - kind: parameter
-        type:
-          kind: float
-          longness: 1
-        name: second
-      - kind: parameter
-        type:
-          kind: char
-        name: third
-      - kind: parameter
-        type:
-          kind: float
-        name: fourth
-    name: bar
+      kind: pointer
+      type:
+        kind: pointer
+    name: my_int_pointer
