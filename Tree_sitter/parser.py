@@ -9,68 +9,55 @@ from yaml import dump
 import sys
 import re
 
+# Global data
 source = ""  # Source code string variable
-
-
 prim_types = {
     # float
-    frozenset({"float"}) : ("float", 0, True),
-    frozenset({"double"}) : ("float", 1, True),
-    frozenset({"long", "double"}) : ("float", 2, True),
+    frozenset({"float"}): ("float", 0, True),
+    frozenset({"double"}): ("float", 1, True),
+    frozenset({"long", "double"}): ("float", 2, True),
     # int
-    frozenset({"int"}) : ("int", 0, True),
-    frozenset({"short"}) : ("int", -1, True),
-    frozenset({"long"}) : ("int", 1, True),
-    frozenset({"long", "long"}) : ("int", 2, True),
-    frozenset({"signed", "short"}) : ("int", -1, True),
-    frozenset({"signed", "long"}) : ("int", 1, True),
-    frozenset({"signed", "long", "long"}) : ("int", 2, True), 
-    frozenset({"unsigned", "short"}) : ("int", -1, False),
-    frozenset({"unsigned", "long"}) : ("int", 1, False),
-    frozenset({"unsigned", "long", "long"}) : ("int", 2, False),
+    frozenset({"int"}): ("int", 0, True),
+    frozenset({"short"}): ("int", -1, True),
+    frozenset({"long"}): ("int", 1, True),
+    frozenset({"longlong"}): ("int", 2, True),
+    frozenset({"signed", "int"}): ("int", 0, True),
+    frozenset({"signed", "short"}): ("int", -1, True),
+    frozenset({"signed", "long"}): ("int", 1, True),
+    frozenset({"signed", "longlong"}): ("int", 2, True),
+    frozenset({"unsigned", "int"}): ("int", 0, False),
+    frozenset({"unsigned", "short"}): ("int", -1, False),
+    frozenset({"unsigned", "long"}): ("int", 1, False),
+    frozenset({"unsigned", "longlong"}): ("int", 2, False),
     # char
-    frozenset({"char"}) : ("char", 0, False),
-    frozenset({"signed", "char"}) : ("char", 0, True),
-    frozenset({"unsigned", "char"}) : ("char", 0, False)
+    frozenset({"char"}): ("char", 0, False),
+    frozenset({"signed", "char"}): ("char", 0, True),
+    frozenset({"unsigned", "char"}): ("char", 0, False),
 }
 
+
+###########################################################################
+###---------------------------parsing_types-----------------------------###
+###########################################################################
 def parse_type(type: str, name: str) -> dict:
     if name == "void":
-        return {"kind" : "void"}
+        return {"kind": "void"}
     if type != "primitive_type" and type != "sized_type_specifier":
-        return {"kind" : "custom_type", "name" : name}
+        return {"kind": "custom_type", "name": name}
 
     prim_dict = {}
-    type_toks = frozenset(name.split(" "))
+    type_toks = frozenset(name.replace(" long ", " longlong ").split(" "))
     kind, longness, signed = prim_types[type_toks]
 
-    prim_dict |= {"kind" : kind}
+    prim_dict |= {"kind": kind}
     if longness != 0:
-        prim_dict |= {"longness" : longness}
+        prim_dict |= {"longness": longness}
     if kind == "char" and signed == True:
-        prim_dict |= {"signed" : "true"}
+        prim_dict |= {"signed": True}
     if (kind == "int" or kind == "float") and signed == False:
-        prim_dict |= {"unsigned" : "true"}
-    
+        prim_dict |= {"unsigned": True}
+
     return prim_dict
-    
-    
-
-
-
-
-# # THIS CODE TRAVERSES ALL NODES (MIGHT NEED LATER SO DONT DELETE)
-# def extract_nodes(cursor) -> Generator:
-#     if not cursor.goto_first_child():
-#         return
-#     while True:
-#         # print(cursor.node.type)
-#         if cursor.node.type == "declaration" and is_function(cursor.node): yield cursor.node
-#         elif cursor.goto_first_child(): continue
-#         while not cursor.goto_next_sibling():
-#             cursor.goto_parent()
-#             if cursor.node.type == "translation_unit":
-#                 return
 
 
 ###########################################################################
@@ -132,7 +119,7 @@ def parse_func(func_node) -> dict:
             {
                 "kind": "declarator",
                 "indirect_type": {"kind": "function", "params": params},
-                "name" : source[start:end]
+                "name": source[start:end],
             }
         ]
     }
@@ -155,7 +142,7 @@ def parse_params(params_node) -> list:
                 type_node = node.named_child(0)
                 start = type_node.start_byte
                 end = type_node.end_byte
-                param |= {"type" : parse_type(type_node.type, source[start:end])}
+                param |= {"type": parse_type(type_node.type, source[start:end])}
                 # extract and append param name
                 start = decl_node.start_byte
                 end = decl_node.end_byte
@@ -283,3 +270,17 @@ if __name__ == "__main__":
 #                 (parameter_declaration
 #                     type: (primitive_type)
 #                     declarator: (identifier))))))
+
+
+# # THIS CODE TRAVERSES ALL NODES (MIGHT NEED LATER SO DONT DELETE)
+# def extract_nodes(cursor) -> Generator:
+#     if not cursor.goto_first_child():
+#         return
+#     while True:
+#         # print(cursor.node.type)
+#         if cursor.node.type == "declaration" and is_function(cursor.node): yield cursor.node
+#         elif cursor.goto_first_child(): continue
+#         while not cursor.goto_next_sibling():
+#             cursor.goto_parent()
+#             if cursor.node.type == "translation_unit":
+#                 return
