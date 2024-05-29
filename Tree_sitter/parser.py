@@ -220,7 +220,7 @@ def main():
 
     # Generate yaml and print it
     yaml = parse_translation_unit(tree.root_node)
-    print("---\n" + dump(yaml, sort_keys=False).strip())
+    print(dump(yaml, sort_keys=False, explicit_start=True).strip())
     # print(str(tree.root_node))
 
 

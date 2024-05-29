@@ -1,0 +1,51 @@
+---
+kind: translation_unit
+entities:
+- kind: declaration
+  type:
+    kind: int
+  declarators:
+  - kind: declarator
+    indirect_type:
+      kind: function
+      params:
+      - kind: parameter
+        type:
+          kind: custom_type
+          name: char
+        name: first
+      - kind: parameter
+        type:
+          kind: custom_type
+          name: double
+        name: second
+    name: foo
+- kind: declaration
+  type:
+    kind: double
+  declarators:
+  - kind: declarator
+    indirect_type:
+      kind: function
+      params:
+      - kind: parameter
+        type:
+          kind: custom_type
+          name: int
+        name: first
+      - kind: parameter
+        type:
+          kind: custom_type
+          name: double
+        name: second
+      - kind: parameter
+        type:
+          kind: custom_type
+          name: char
+        name: third
+      - kind: parameter
+        type:
+          kind: custom_type
+          name: float
+        name: fourth
+    name: bar
