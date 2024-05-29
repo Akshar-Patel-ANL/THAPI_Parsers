@@ -1,0 +1,24 @@
+---
+kind: translation_unit
+entities:
+- kind: declaration
+  storage: :typedef
+  type:
+    kind: int
+  declarators:
+  - kind: declarator
+    name: my_int
+- kind: declaration
+  type:
+    kind: void
+  declarators:
+  - kind: declarator
+    indirect_type:
+      kind: function
+      params:
+      - kind: parameter
+        type:
+          kind: custom_type
+          name: my_int
+        name: a
+    name: foo

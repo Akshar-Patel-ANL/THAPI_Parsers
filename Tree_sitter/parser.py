@@ -52,10 +52,7 @@ def parse_decl(decl_node) -> dict:
     decl_type_node = decl_node.named_child(1)
     match decl_type_node.type:
         case "function_declarator":
-            name_node = decl_type_node.named_child(0)
-            start = name_node.start_byte
-            end = name_node.end_byte
-            return decl | parse_func(decl_node) | {"name": source[start:end]}
+            return decl | parse_func(decl_node)
 
 
 ###########################################################################
@@ -68,7 +65,7 @@ def parse_func(func_node) -> dict:
     func = {}
 
     # extract and record return type
-    cursor.goto_descendant(1)  # node: type: `return type`
+    cursor.goto_first_child()  # node: type: `return type`
     start = cursor.node.start_byte
     end = cursor.node.end_byte
     func |= {"type": {"kind": source[start:end]}}
@@ -76,6 +73,8 @@ def parse_func(func_node) -> dict:
     # extract and record declarator
     cursor.goto_next_sibling()  # node: `function_declarator`
     cursor.goto_first_child()  # node: `declarator` : identifier
+    start = cursor.node.start_byte
+    end = cursor.node.end_byte
     cursor.goto_next_sibling()  # node: `parameter` : parameter list
 
     # extact and record params
@@ -85,6 +84,7 @@ def parse_func(func_node) -> dict:
             {
                 "kind": "declarator",
                 "indirect_type": {"kind": "function", "params": params},
+                "name" : source[start:end]
             }
         ]
     }
@@ -107,7 +107,10 @@ def parse_params(params_node) -> list:
                 type_node = node.named_child(0)
                 start = type_node.start_byte
                 end = type_node.end_byte
-                param |= {"type": {"kind": type_node.type, "name": source[start:end]}}
+                if type_node.type == "primitive_tive":
+                    param |= {"type" : {"kind" : source[start:end]}}
+                else:
+                    param |= {"type" : {"kind" : "custom_type", "name" : source[start:end]}}
                 # extract and append param name
                 start = decl_node.start_byte
                 end = decl_node.end_byte
@@ -162,7 +165,7 @@ def parse_pointer_param(cursor) -> dict:
 ###########################################################################
 def parse_typedef(node) -> dict:
     global source
-    typedef = {"kind": "declaration", "storage": ":typdef"}
+    typedef = {"kind": "declaration", "storage": ":typedef"}
     cursor = node.walk()
     # Extract type being renamed
     type_node = node.named_children[0]
@@ -217,7 +220,7 @@ def main():
 
     # Generate yaml and print it
     yaml = parse_translation_unit(tree.root_node)
-    print(dump(yaml, sort_keys=False))
+    print("---\n" + dump(yaml, sort_keys=False))
     # print(str(tree.root_node))
 
 
