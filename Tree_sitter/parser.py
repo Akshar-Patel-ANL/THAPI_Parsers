@@ -2,10 +2,15 @@
 RUN INSTRUCTIONS: $python3 parser.py <PATH TO HEADER FILE>
 """
 
+# Tree Sitter imports
 import tree_sitter_c as tsc
 from tree_sitter import Language, Parser
 from typing import Generator
+
+# YAML import
 from yaml import dump
+
+# Other imports
 import sys
 import re
 
@@ -14,11 +19,11 @@ import re
 ###########################################################################
 source = ""  # Source code string variable
 prim_types = {  # (<sorted tuple of words in type>) : (<type name>, <longness value>, <signed?>)
-    # float
+    # float variants
     ("float",): ("float", 0, True),
     ("double",): ("float", 1, True),
     ("double", "long"): ("float", 2, True),
-    # int
+    # int variants
     ("int",): ("int", 0, True),
     ("short",): ("int", -1, True),
     ("long",): ("int", 1, True),
@@ -31,7 +36,7 @@ prim_types = {  # (<sorted tuple of words in type>) : (<type name>, <longness va
     ("short", "unsigned"): ("int", -1, False),
     ("long", "unsigned"): ("int", 1, False),
     ("long", "long", "unsigned"): ("int", 2, False),
-    # char
+    # char variants
     ("char",): ("char", 0, False),
     ("char", "signed"): ("char", 0, True),
     ("char", "unsigned"): ("char", 0, False),
