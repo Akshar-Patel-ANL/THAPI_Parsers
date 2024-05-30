@@ -15,8 +15,6 @@ import re
 source = ""  # Source code string variable
 
 
-
-
 ###########################################################################
 ###---------------------------Parsing_Types-----------------------------###
 ###########################################################################
@@ -43,8 +41,8 @@ def parse_type(type: str, name: str) -> dict:
         ("char",): ("char", 0, False),
         ("char", "signed"): ("char", 0, True),
         ("char", "unsigned"): ("char", 0, False),
-        }  
-    
+    }
+
     prim_dict = {}
     if name == "void":
         prim_dict |= {"kind": "void"}
@@ -82,7 +80,10 @@ def parse_translation_unit(tree) -> dict:
             case "comment":
                 continue
             case _:
-                raise NotImplementedError("WARNING Unhandled entity form in parse_translation_unit(): " + node.type)
+                raise NotImplementedError(
+                    "WARNING Unhandled entity form in parse_translation_unit(): "
+                    + node.type
+                )
     return {"kind": "translation_unit", "entities": entities}
 
 
@@ -96,7 +97,10 @@ def parse_decl(decl_node) -> dict:
         case "function_declarator":
             return decl | parse_func(decl_node)
         case _:
-            print("WARNING Unhandled delcaration form in parse_decl(): " + decl_type_node.type)
+            print(
+                "WARNING Unhandled delcaration form in parse_decl(): "
+                + decl_type_node.type
+            )
 
 
 ###########################################################################
@@ -159,7 +163,9 @@ def parse_params(params_node) -> list:
                     cursor.goto_next_sibling()
                 param |= {"name": re.sub(r"\*| ", "", extract_name(cursor.node))}
             case _:
-                raise NotImplementedError("WARNING Unhandled function parameter type: " + decl_node.type)
+                raise NotImplementedError(
+                    "WARNING Unhandled function parameter type: " + decl_node.type
+                )
         params.append(param)
 
     return params
@@ -218,22 +224,25 @@ def parse_pointer_typdef(node) -> dict:
                 "WARNING Unexpected declarator in parse_pointer_typedef(): " + node.type
             )
 
+
 def extract_name(node):
     start = node.start_byte
     end = node.end_byte
     return source[start:end]
 
+
 ###########################################################################
 ###----------------------------Main_Function----------------------------###
 ###########################################################################
 if __name__ == "__main__":
-    # Handle command line args
     args = len(sys.argv)
     if args != 2:
-        raise ValueError("INCORRECT NUMBER OF ARGS\nUsage: python3 parser.py <header file path>")
+        raise ValueError(
+            "INCORRECT NUMBER OF ARGS\nUsage: python3 parser.py <header file path>"
+        )
 
     header_path: str = str(sys.argv[1])
-    with open(header_path, 'r') as file:
+    with open(header_path, "r") as file:
         source = file.read()
 
     C_LANGUAGE = Language(tsc.language())
