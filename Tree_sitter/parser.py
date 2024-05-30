@@ -2,15 +2,10 @@
 RUN INSTRUCTIONS: $python3 parser.py <PATH TO HEADER FILE>
 """
 
-# Tree Sitter imports
 import tree_sitter_c as tsc
 from tree_sitter import Language, Parser
 from typing import Generator
-
-# YAML import
 from yaml import dump
-
-# Other imports
 import sys
 import re
 
@@ -18,39 +13,42 @@ import re
 ###--------------------------Global_Variables---------------------------###
 ###########################################################################
 source = ""  # Source code string variable
-prim_types = {  # (<sorted tuple of words in type>) : (<type name>, <longness value>, <signed?>)
-    # float variants
-    ("float",): ("float", 0, True),
-    ("double",): ("float", 1, True),
-    ("double", "long"): ("float", 2, True),
-    # int variants
-    ("int",): ("int", 0, True),
-    ("short",): ("int", -1, True),
-    ("long",): ("int", 1, True),
-    ("long", "long"): ("int", 2, True),
-    ("int", "signed"): ("int", 0, True),
-    ("short", "signed"): ("int", -1, True),
-    ("long", "signed"): ("int", 1, True),
-    ("long", "long", "signed"): ("int", 2, True),
-    ("int", "unsigned"): ("int", 0, False),
-    ("short", "unsigned"): ("int", -1, False),
-    ("long", "unsigned"): ("int", 1, False),
-    ("long", "long", "unsigned"): ("int", 2, False),
-    # char variants
-    ("char",): ("char", 0, False),
-    ("char", "signed"): ("char", 0, True),
-    ("char", "unsigned"): ("char", 0, False),
-}
+
+
 
 
 ###########################################################################
 ###---------------------------Parsing_Types-----------------------------###
 ###########################################################################
 def parse_type(type: str, name: str) -> dict:
+    prim_types = {  # (<sorted tuple of words in type>) : (<type name>, <longness value>, <signed?>)
+        # float variants
+        ("float",): ("float", 0, True),
+        ("double",): ("float", 1, True),
+        ("double", "long"): ("float", 2, True),
+        # int variants
+        ("int",): ("int", 0, True),
+        ("short",): ("int", -1, True),
+        ("long",): ("int", 1, True),
+        ("long", "long"): ("int", 2, True),
+        ("int", "signed"): ("int", 0, True),
+        ("short", "signed"): ("int", -1, True),
+        ("long", "signed"): ("int", 1, True),
+        ("long", "long", "signed"): ("int", 2, True),
+        ("int", "unsigned"): ("int", 0, False),
+        ("short", "unsigned"): ("int", -1, False),
+        ("long", "unsigned"): ("int", 1, False),
+        ("long", "long", "unsigned"): ("int", 2, False),
+        # char variants
+        ("char",): ("char", 0, False),
+        ("char", "signed"): ("char", 0, True),
+        ("char", "unsigned"): ("char", 0, False),
+        }  
+    
     prim_dict = {}
     if name == "void":
         prim_dict |= {"kind": "void"}
-    elif type != "primitive_type" and type != "sized_type_specifier":
+    elif type not in ["primitive_type", "sized_type_specifier"]:
         prim_dict |= {"kind": "custom_type", "name": name}
     else:
         # Turn type name into tuple for hashing in prim_types
@@ -74,7 +72,6 @@ def parse_type(type: str, name: str) -> dict:
 ###----------------------Parsing_Translation_Unit-----------------------###
 ###########################################################################
 def parse_translation_unit(tree) -> dict:
-    yaml = {"kind": "translation_unit"}
     entities = []
     for node in tree.children:
         match node.type:
@@ -82,10 +79,11 @@ def parse_translation_unit(tree) -> dict:
                 entities.append(parse_decl(node))
             case "type_definition":
                 entities.append(parse_typedef(node))
-            case _:
+            case "comment":
                 continue
-    yaml |= {"entities": entities}
-    return yaml
+            case _:
+                raise NotImplementedError("WARNING Unhandled entity form in parse_translation_unit(): " + node.type)
+    return {"kind": "translation_unit", "entities": entities}
 
 
 ###########################################################################
@@ -97,6 +95,8 @@ def parse_decl(decl_node) -> dict:
     match decl_type_node.type:
         case "function_declarator":
             return decl | parse_func(decl_node)
+        case _:
+            print("WARNING Unhandled delcaration form in parse_decl(): " + decl_type_node.type)
 
 
 ###########################################################################
@@ -109,15 +109,12 @@ def parse_func(func_node) -> dict:
 
     # extract and record return type
     cursor.goto_first_child()  # node: type: `return type`
-    start = cursor.node.start_byte
-    end = cursor.node.end_byte
-    func |= {"type": parse_type(cursor.node.type, source[start:end])}
+    func |= {"type": parse_type(cursor.node.type, extract_name(cursor.node))}
 
     # extract and record declarator
     cursor.goto_next_sibling()  # node: `function_declarator`
     cursor.goto_first_child()  # node: `declarator` : identifier
-    start = cursor.node.start_byte
-    end = cursor.node.end_byte
+    decl_name = extract_name(cursor.node)
     cursor.goto_next_sibling()  # node: `parameter` : parameter list
 
     # extact and record params
@@ -127,7 +124,7 @@ def parse_func(func_node) -> dict:
             {
                 "kind": "declarator",
                 "indirect_type": {"kind": "function", "params": params},
-                "name": source[start:end],
+                "name": decl_name,
             }
         ]
     }
@@ -148,13 +145,9 @@ def parse_params(params_node) -> list:
             case "identifier":
                 # extract and record param type
                 type_node = node.named_child(0)
-                start = type_node.start_byte
-                end = type_node.end_byte
-                param |= {"type": parse_type(type_node.type, source[start:end])}
+                param |= {"type": parse_type(type_node.type, extract_name(type_node))}
                 # extract and append param name
-                start = decl_node.start_byte
-                end = decl_node.end_byte
-                param |= {"name": source[start:end]}
+                param |= {"name": extract_name(decl_node)}
             case "pointer_declarator":
                 cursor = node.walk()
                 cursor.goto_first_child()  # node: `type`
@@ -164,12 +157,9 @@ def parse_params(params_node) -> list:
                 cursor.goto_next_sibling()
                 while cursor.goto_first_child():
                     cursor.goto_next_sibling()
-                start = cursor.node.start_byte
-                end = cursor.node.end_byte
-                param |= {"name": re.sub(r"\*| ", "", source[start:end])}
+                param |= {"name": re.sub(r"\*| ", "", extract_name(cursor.node))}
             case _:
-                print("WARNING Unhandled function parameter type: " + decl_node.type)
-                exit(-1)
+                raise NotImplementedError("WARNING Unhandled function parameter type: " + decl_node.type)
         params.append(param)
 
     return params
@@ -184,19 +174,16 @@ def parse_pointer_param(cursor) -> dict:
                 if cursor.node.type != "pointer_declarator":
                     break
             cursor.goto_first_child()
-            start = cursor.node.start_byte
-            end = cursor.node.end_byte
-            return {"type": parse_type(cursor.node.type, source[start:end])}
+            return {"type": parse_type(cursor.node.type, extract_name(cursor.node))}
         case "pointer_declarator":
             cursor.goto_first_child()  # node: `*`
             cursor.goto_next_sibling()  # node: next declarator (either pointer_declarator or indentifier)
             return {"type": {"kind": "pointer"} | parse_pointer_param(cursor)}
         case _:
-            print(
+            raise NotImplementedError(
                 "WARNING Unexpected declarator in parse_pointer_param(): "
                 + cursor.node.type
             )
-            exit(-1)
 
 
 ###########################################################################
@@ -204,20 +191,15 @@ def parse_pointer_param(cursor) -> dict:
 ###########################################################################
 def parse_typedef(node) -> dict:
     typedef = {"kind": "declaration", "storage": ":typedef"}
-    cursor = node.walk()
     # Extract type being renamed
     type_node = node.named_children[0]
-    start = type_node.start_byte
-    end = type_node.end_byte
-    type = parse_type(type_node.type, source[start:end])
+    type = parse_type(type_node.type, extract_name(type_node))
     # Extract renaming declarator
     decl_node = node.named_children[1]
-    start = decl_node.start_byte
-    end = decl_node.end_byte
     decl = {"kind": "declarator"}
     if decl_node.type == "pointer_declarator":
         decl |= {"indirect_type": parse_pointer_typdef(decl_node)}
-    decl |= {"name": re.sub(r"\*| ", "", source[start:end])}
+    decl |= {"name": re.sub(r"\*| ", "", extract_name(decl_node))}
     # Append data to entry and return
     return typedef | {"type": type, "declarators": [decl]}
 
@@ -225,8 +207,6 @@ def parse_typedef(node) -> dict:
 def parse_pointer_typdef(node) -> dict:
     match node.named_children[0].type:
         case "type_identifier":
-            start = node.start_byte
-            end = node.end_byte
             return {"kind": "pointer"}
         case "pointer_declarator":
             return {
@@ -234,46 +214,34 @@ def parse_pointer_typdef(node) -> dict:
                 "type": parse_pointer_typdef(node.named_children[0]),
             }
         case _:
-            print(
+            raise NotImplementedError(
                 "WARNING Unexpected declarator in parse_pointer_typedef(): " + node.type
             )
-            exit(-1)
 
+def extract_name(node):
+    start = node.start_byte
+    end = node.end_byte
+    return source[start:end]
 
 ###########################################################################
 ###----------------------------Main_Function----------------------------###
 ###########################################################################
-def main():
+if __name__ == "__main__":
     # Handle command line args
-    args: int = len(sys.argv)
+    args = len(sys.argv)
     if args != 2:
-        print("INCORRECT NUMBER OF ARGS\n")
-        print("Usage: python3 parser.py <header file path>")
-        sys.exit(-1)
+        raise ValueError("INCORRECT NUMBER OF ARGS\nUsage: python3 parser.py <header file path>")
 
     header_path: str = str(sys.argv[1])
+    with open(header_path, 'r') as file:
+        source = file.read()
 
-    # Read in file to string
-    file = open(header_path)
-    source = file.read()
-
-    # Load language
     C_LANGUAGE = Language(tsc.language())
-
-    # Create parser
     parser = Parser(C_LANGUAGE)
-
-    # Parse header file and store tree
     tree = parser.parse(bytes(source, "utf-8"))
-
-    # Generate yaml and print it
     yaml = parse_translation_unit(tree.root_node)
     print(dump(yaml, sort_keys=False, explicit_start=True).strip())
     # print(str(tree.root_node))
-
-
-if __name__ == "__main__":
-    main()
 
 # EXAMPLE INPUT
 # void foo(int a);
@@ -307,6 +275,4 @@ if __name__ == "__main__":
 #         if cursor.node.type == "declaration" and is_function(cursor.node): yield cursor.node
 #         elif cursor.goto_first_child(): continue
 #         while not cursor.goto_next_sibling():
-#             cursor.goto_parent()
-#             if cursor.node.type == "translation_unit":
-#                 return
+#             cursor.goto_pare
