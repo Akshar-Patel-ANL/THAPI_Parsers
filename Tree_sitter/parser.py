@@ -191,7 +191,9 @@ def parse_pointer_param(type, node) -> tuple:
             )
         case ["*", "pointer_declarator"] | ["primitive_type", "pointer_declarator"]:
             decl_name, type_dict = parse_pointer_param(type, node.children[1])
-            return (decl_name, {"type": {"kind": "pointer"} | type_dict})
+            return (decl_name, {
+                "kind": "pointer",
+                "type": type_dict})
         case _:
             raise NotImplementedError(
                 f"Unexpected declarator in parse_pointer_param(): #{types}"
@@ -248,7 +250,7 @@ def parse_pointer_typedef(node) -> tuple:
             )
         case _:
             raise NotImplementedError(
-                f"Unexpected declarator in parse_pointer_typedef(): #{type}"
+                f"Unexpected declarator in parse_pointer_typedef(): #{types}"
             )
 
 
