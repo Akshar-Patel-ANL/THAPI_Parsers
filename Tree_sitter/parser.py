@@ -21,27 +21,28 @@ source = ""  # Source code string variable
 def parse_type(type: str, name: str) -> dict:
     prim_types = {  # (<sorted tuple of words in type>) : (<type name>, <longness value>, <signed?>)
         # float variants
-        ("float",): ("float", 0, True),
-        ("double",): ("float", 1, True),
-        ("double", "long"): ("float", 2, True),
+        "float": ("float", 0, True),
+        "double": ("float", 1, True),
+        "long double": ("float", 2, True),
         # int variants
-        ("int",): ("int", 0, True),
-        ("short",): ("int", -1, True),
-        ("long",): ("int", 1, True),
-        ("long", "long"): ("int", 2, True),
-        ("int", "signed"): ("int", 0, True),
-        ("short", "signed"): ("int", -1, True),
-        ("long", "signed"): ("int", 1, True),
-        ("long", "long", "signed"): ("int", 2, True),
-        ("int", "unsigned"): ("int", 0, False),
-        ("short", "unsigned"): ("int", -1, False),
-        ("long", "unsigned"): ("int", 1, False),
-        ("long", "long", "unsigned"): ("int", 2, False),
+        "int": ("int", 0, True),
+        "short": ("int", -1, True),
+        "long": ("int", 1, True),
+        "long long": ("int", 2, True),
+        "signed int": ("int", 0, True),
+        "signed short": ("int", -1, True),
+        "signed long": ("int", 1, True),
+        "signed long long": ("int", 2, True),
+        "unsigned int": ("int", 0, False),
+        "unsigned short": ("int", -1, False),
+        "unsigned long": ("int", 1, False),
+        "unsigned long long": ("int", 2, False),
         # char variants
-        ("char",): ("char", 0, False),
-        ("char", "signed"): ("char", 0, True),
-        ("char", "unsigned"): ("char", 0, False),
+        "char": ("char", 0, False),
+        "signed char": ("char", 0, True),
+        "unsigned char": ("char", 0, False),
     }
+    prim_types_sanitized = {sanitize_type(k): v for k,v in prim_types.items()}
 
     prim_dict = {}
     if name == "void":
@@ -50,10 +51,8 @@ def parse_type(type: str, name: str) -> dict:
         prim_dict |= {"kind": "custom_type", "name": name}
     else:
         # Turn type name into tuple for hashing in prim_types
-        type_toks = [tok for tok in name.split(" ") if tok]
-        type_toks.sort()
-        type_tup = tuple(type_toks)
-        kind, longness, signed = prim_types[type_tup]
+        type_tup = sanitize_type(name)
+        kind, longness, signed = prim_types_sanitized[type_tup]
         # Append to dict necessary information based off of type
         prim_dict |= {"kind": kind}
         if longness != 0:
@@ -161,7 +160,7 @@ def parse_params(params_node) -> list:
                 cursor.goto_next_sibling()
                 while cursor.goto_first_child():
                     cursor.goto_next_sibling()
-                param |= {"name": re.sub(r"\*| ", "", extract_name(cursor.node))}
+                param |= {"name": sanitize_pointer(extract_name(cursor.node))}
             case _:
                 raise NotImplementedError(
                     "WARNING Unhandled function parameter type: " + decl_node.type
@@ -205,7 +204,7 @@ def parse_typedef(node) -> dict:
     decl = {"kind": "declarator"}
     if decl_node.type == "pointer_declarator":
         decl |= {"indirect_type": parse_pointer_typdef(decl_node)}
-    decl |= {"name": re.sub(r"\*| ", "", extract_name(decl_node))}
+    decl |= {"name": sanitize_pointer(extract_name(decl_node))}
     # Append data to entry and return
     return typedef | {"type": type, "declarators": [decl]}
 
@@ -224,12 +223,20 @@ def parse_pointer_typdef(node) -> dict:
                 "WARNING Unexpected declarator in parse_pointer_typedef(): " + node.type
             )
 
-
+###########################################################################
+###--------------------------Helper_Functions---------------------------###
+###########################################################################
 def extract_name(node):
     start = node.start_byte
     end = node.end_byte
     return source[start:end]
 
+def sanitize_type(name: str) -> tuple:
+    toks = [tok for tok in name.split() if tok] # Removes empty strings that occasionally generate from split() here
+    return tuple(sorted(toks))
+
+def sanitize_pointer(name: str) -> str:
+    return re.sub(r"\*| ", "", name)
 
 ###########################################################################
 ###----------------------------Main_Function----------------------------###
