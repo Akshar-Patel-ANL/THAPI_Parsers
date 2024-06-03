@@ -108,15 +108,22 @@ def parse_translation_unit(tree) -> dict:
 ###------------------------Parsing_Declarations-------------------------###
 ###########################################################################
 def parse_decl(node) -> dict:
-    decl_type_node = node.children[1]
-    match decl_type_node.type:
-        case "function_declarator":
+    match types := [child_node.type for child_node in node.children]:
+        case (
+            ["primitive_type", "function_declarator", ";"]
+            | ["sized_type_specifier", "function_declarator", ";"]
+            | ["type_identifier", "function_declarator", ";"]
+        ):
             decl_dict = parse_func(node)
-        case "pointer_declarator":
+        case (
+            ["primitive_type", "pointer_declarator", ";"]
+            | ["size_type_specifier", "pointer_declarator", ";"]
+            | ["type_identifier", "pointer_declarator", ";"]
+        ):
             decl_dict = parse_pointer_decl(node)
         case _:
             raise NotImplementedError(
-                f"Unhandled delcaration form in parse_decl(): #{decl_type_node.type}"
+                f"Unhandled delcaration form in parse_decl(): #{types}"
             )
     return {"kind": "declaration"} | decl_dict
 
@@ -128,9 +135,11 @@ def parse_pointer_decl(node, points = 0, ret_type_dict = {}) -> dict:
             | ["size_type_specifier", "pointer_declarator", ";"]
             | ["type_identifier", "pointer_declarator", ";"]
         ):
-            return parse_pointer_decl(node.children[1], points+1, parse_type(node.children[0]))
+            type_node, decl_node, _ = node.children
+            return parse_pointer_decl(decl_node, points+1, parse_type(type_node))
         case ["*", "pointer_declarator"]:
-            return parse_pointer_decl(node.children[1], points+1, ret_type_dict)
+            _, decl_node, = node.children
+            return parse_pointer_decl(decl_node, points+1, ret_type_dict)
         case ["*", "function_declarator"]:
             return parse_func(node, points, ret_type_dict)
         case _:
@@ -149,11 +158,13 @@ def parse_func(node, points = 0, ret_type_dict = {}) -> dict:
             | ["sized_type_specifier", "function_declarator", ";"]
             | ["type_identifier", "function_declarator", ";"]
         ):
-            ret_type_dict = parse_type(node.children[0])
-            func_name, params = parse_func_decl(node.children[1])
+            ret_type_node, func_decl_node, _ = node.children
+            ret_type_dict = parse_type(ret_type_node)
+            func_name, params = parse_func_decl(func_decl_node)
             pointer_dict = {}
         case ["*", "function_declarator"]:  # When return type is a pointer (return value is stored with the first pointer higher in the AST)
-            func_name, params = parse_func_decl(node.children[1])
+            _, func_decl_node = node.children
+            func_name, params = parse_func_decl(func_decl_node)
             pointer_dict = {"type": {"kind": "pointer"}}
             while points > 1:
                 pointer_dict = {"type": {"kind": "pointer"} | pointer_dict}
@@ -178,16 +189,15 @@ def parse_func(node, points = 0, ret_type_dict = {}) -> dict:
     }
 
 
-def parse_func_decl(node):
+def parse_func_decl(node) -> tuple:
     match types := [child_node.type for child_node in node.children]:
         case ["identifier", "parameter_list"]:
-            func_name = extract_src_text(node.children[0])
-            params = parse_params(node.children[1])
+            func_node, params_node = node.children
+            return (extract_src_text(func_node), parse_params(params_node))
         case _:
             raise NotImplementedError(
                 f"Unhandled funcation delcaration form in parse_func_decl(): #{types}"
             )
-    return (func_name, params)
 
 
 ###########################################################################
@@ -197,8 +207,7 @@ def parse_params(params_node) -> list:
     params = []
     # loop through and record parameters
     for node in params_node.named_children:
-        type_node = node.children[0]
-        decl_node = node.children[1]
+        type_node, decl_node = node.children
         match types := [child_node.type for child_node in node.children]:
             case (
                 ["primitive_type", "identifier"]
@@ -227,12 +236,14 @@ def parse_params(params_node) -> list:
 def parse_pointer_param(type, node) -> tuple:
     match types := [child_node.type for child_node in node.children]:
         case ["*", "identifier"]:
+            _, id_node = node.children
             return (
-                extract_src_text(node.children[1]),
+                extract_src_text(id_node),
                 {"kind": "pointer", "type": type},
             )
         case ["*", "pointer_declarator"] | ["primitive_type", "pointer_declarator"]:
-            decl_name, type_dict = parse_pointer_param(type, node.children[1])
+            _, ptr_decl_node = node.children
+            decl_name, type_dict = parse_pointer_param(type, ptr_decl_node)
             return (decl_name, {"kind": "pointer", "type": type_dict})
         case _:
             raise NotImplementedError(
@@ -244,9 +255,8 @@ def parse_pointer_param(type, node) -> tuple:
 ###----------------------Parsing_Type_Definitions-----------------------###
 ###########################################################################
 def parse_typedef(node) -> dict:
-    type_node = node.children[1]
+    _, type_node, decl_node, _ = node.children
     type_dict = parse_type(type_node)
-    decl_node = node.children[2]
     match types := [child_node.type for child_node in node.children]:
         case (
             ["typedef", "primitive_type", "type_identifier", ";"]
@@ -259,10 +269,10 @@ def parse_typedef(node) -> dict:
             | ["typedef", "type_identifier", "pointer_declarator", ";"]
             | ["typedef", "sized_type_specifier", "pointer_declarator", ";"]
         ):
-            decl_name, pointer_dict = parse_pointer_typedef(decl_node)
+            decl_name, ptr_dict = parse_pointer_typedef(decl_node)
             decl = {
                 "kind": "declarator",
-                "indirect_type": pointer_dict,
+                "indirect_type": ptr_dict,
                 "name": decl_name,
             }
         case _:
@@ -278,9 +288,11 @@ def parse_typedef(node) -> dict:
 def parse_pointer_typedef(node) -> tuple:
     match types := [child_node.type for child_node in node.children]:
         case ["*", "type_identifier"]:
-            return (extract_src_text(node.children[1]), {"kind": "pointer"})
+            _, type_id_node = node.children
+            return (extract_src_text(type_id_node), {"kind": "pointer"})
         case ["*", "pointer_declarator"]:
-            decl_name, pointer_dict = parse_pointer_typedef(node.children[1])
+            _, ptr_decl_node = node.children
+            decl_name, pointer_dict = parse_pointer_typedef(ptr_decl_node)
             return (
                 decl_name,
                 {
