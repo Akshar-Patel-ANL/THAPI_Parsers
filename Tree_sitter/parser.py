@@ -4,7 +4,7 @@ RUN INSTRUCTIONS: $python3 parser.py <PATH TO HEADER FILE>
 
 import tree_sitter_c
 import tree_sitter
-from yaml import dump
+import yaml
 import sys
 import re
 
@@ -35,7 +35,7 @@ def sanitize_pointer(name: str) -> str:
 ###########################################################################
 ###---------------------------Parsing_Types-----------------------------###
 ###########################################################################
-def parse_type(type: str, name: str) -> dict:
+def parse_type(node) -> dict:
     prim_types = {  # (<sorted tuple of words in type>) : (<type name>, <longness value>, <signed?>)
         # float variants
         "float": ("float", 0, True),
@@ -59,8 +59,10 @@ def parse_type(type: str, name: str) -> dict:
         "signed char": ("char", 0, True),
         "unsigned char": ("char", 0, False),
     }
-    prim_types_sanitized = {sanitize_type(k): v for k, v in prim_types.items()}
 
+    type = node.type
+    name = extract_src_text(node)
+    prim_types_sanitized = {sanitize_type(k): v for k, v in prim_types.items()}
     prim_dict = {}
     if name == "void":
         prim_dict |= {"kind": "void"}
@@ -105,41 +107,71 @@ def parse_translation_unit(tree) -> dict:
 ###########################################################################
 ###------------------------Parsing_Declarations-------------------------###
 ###########################################################################
-def parse_decl(decl_node) -> dict:
-    decl = {"kind": "declaration"}
-    decl_type_node = decl_node.children[1]
+def parse_decl(node) -> dict:
+    decl_type_node = node.children[1]
     match decl_type_node.type:
         case "function_declarator":
-            return decl | parse_func(decl_node)
+            decl_dict = parse_func(node)
+        case "pointer_declarator":
+            decl_dict = parse_pointer_decl(node)
         case _:
             raise NotImplementedError(
                 f"Unhandled delcaration form in parse_decl(): #{decl_type_node.type}"
+            )
+    return {"kind": "declaration"} | decl_dict
+
+
+def parse_pointer_decl(node, points = 0, ret_type_dict = {}) -> dict:
+    match types := [child_node.type for child_node in node.children]:
+        case (
+            ["primitive_type", "pointer_declarator", ";"]
+            | ["size_type_specifier", "pointer_declarator", ";"]
+            | ["type_identifier", "pointer_declarator", ";"]
+        ):
+            return parse_pointer_decl(node.children[1], points+1, parse_type(node.children[0]))
+        case ["*", "pointer_declarator"]:
+            return parse_pointer_decl(node.children[1], points+1, ret_type_dict)
+        case ["*", "function_declarator"]:
+            return parse_func(node, points, ret_type_dict)
+        case _:
+            raise NotImplementedError(
+                f"Unhandled pointer declaration form in parse_pointer_decl(): #{types}"
             )
 
 
 ###########################################################################
 ###-------------------------Parsing_Functions---------------------------###
 ###########################################################################
-def parse_func(node) -> dict:
+def parse_func(node, points = 0, ret_type_dict = {}) -> dict:
     match types := [child_node.type for child_node in node.children]:
         case (
             ["primitive_type", "function_declarator", ";"]
             | ["sized_type_specifier", "function_declarator", ";"]
             | ["type_identifier", "function_declarator", ";"]
         ):
-            ret_type_node = node.children[0]
+            ret_type_dict = parse_type(node.children[0])
             func_name, params = parse_func_decl(node.children[1])
+            pointer_dict = {}
+        case ["*", "function_declarator"]:  # When return type is a pointer (return value is stored with the first pointer higher in the AST)
+            func_name, params = parse_func_decl(node.children[1])
+            pointer_dict = {"type": {"kind": "pointer"}}
+            while points > 1:
+                pointer_dict = {"type": {"kind": "pointer"} | pointer_dict}
+                points -= 1
         case _:
             raise NotImplementedError(
                 f"Unhandled function form in parse_func(): #{types}"
             )
 
     return {
-        "type": parse_type(ret_type_node.type, extract_src_text(ret_type_node)),
+        "type": ret_type_dict,
         "declarators": [
             {
                 "kind": "declarator",
-                "indirect_type": {"kind": "function", "params": params},
+                "indirect_type": 
+                    {"kind": "function"}
+                    | pointer_dict
+                    | {"params": params},
                 "name": func_name,
             }
         ],
@@ -173,7 +205,7 @@ def parse_params(params_node) -> list:
                 | ["sized_type_specifier", "identifier"]
                 | ["type_identifier", "identifier"]
             ):
-                type_dict = parse_type(types[0], extract_src_text(type_node))
+                type_dict = parse_type(type_node)
                 decl_name = extract_src_text(decl_node)
             case (
                 ["primitive_type", "pointer_declarator"]
@@ -181,7 +213,7 @@ def parse_params(params_node) -> list:
                 | ["type_identifier", "pointer_declarator"]
             ):
                 decl_name, type_dict = parse_pointer_param(
-                    parse_type(types[0], extract_src_text(type_node)), decl_node
+                    parse_type(type_node), decl_node
                 )
             case _:
                 raise NotImplementedError(
@@ -213,7 +245,7 @@ def parse_pointer_param(type, node) -> tuple:
 ###########################################################################
 def parse_typedef(node) -> dict:
     type_node = node.children[1]
-    type_dict = parse_type(type_node.type, extract_src_text(type_node))
+    type_dict = parse_type(type_node)
     decl_node = node.children[2]
     match types := [child_node.type for child_node in node.children]:
         case (
@@ -278,6 +310,7 @@ if __name__ == "__main__":
     C_LANGUAGE = tree_sitter.Language(tree_sitter_c.language())
     parser = tree_sitter.Parser(C_LANGUAGE)
     tree = parser.parse(header_source)
-    yaml = parse_translation_unit(tree.root_node)
-    print(dump(yaml, sort_keys=False, explicit_start=True).strip())
+    yaml_dict = parse_translation_unit(tree.root_node)
+    yaml.Dumper.ignore_aliases = lambda *args : True
+    print(yaml.dump(yaml_dict, sort_keys=False, explicit_start=True, default_flow_style=False).strip())
     # print(str(tree.root_node))    # Uncomment to print AST as an S-expression
