@@ -107,45 +107,55 @@ def parse_translation_unit(tree) -> dict:
 ###########################################################################
 def parse_decl(decl_node) -> dict:
     decl = {"kind": "declaration"}
-    decl_type_node = decl_node.named_child(1)
+    decl_type_node = decl_node.children[1]
     match decl_type_node.type:
         case "function_declarator":
             return decl | parse_func(decl_node)
         case _:
-            print(f"Unhandled delcaration form in parse_decl(): #{decl_type_node.type}")
+            raise NotImplementedError(
+                f"Unhandled delcaration form in parse_decl(): #{decl_type_node.type}"
+            )
 
 
 ###########################################################################
 ###-------------------------Parsing_Functions---------------------------###
 ###########################################################################
-def parse_func(func_node) -> dict:
-    # initialize source code, cursor, and dict
-    cursor = func_node.walk()
-    func = {}
+def parse_func(node) -> dict:
+    match types := [child_node.type for child_node in node.children]:
+        case (
+            ["primitive_type", "function_declarator", ";"]
+            | ["sized_type_specifier", "function_declarator", ";"]
+            | ["type_identifier", "function_declarator", ";"]
+        ):
+            ret_type_node = node.children[0]
+            func_name, params = parse_func_decl(node.children[1])
+        case _:
+            raise NotImplementedError(
+                f"Unhandled function form in parse_func(): #{types}"
+            )
 
-    # extract and record return type
-    cursor.goto_first_child()  # node: type: `return type`
-    func |= {"type": parse_type(cursor.node.type, extract_src_text(cursor.node))}
-
-    # extract and record declarator
-    cursor.goto_next_sibling()  # node: `function_declarator`
-    cursor.goto_first_child()  # node: `declarator` : identifier
-    decl_name = extract_src_text(cursor.node)
-    cursor.goto_next_sibling()  # node: `parameter` : parameter list
-
-    # extact and record params
-    params = parse_params(cursor.node)
-    func |= {
+    return {
+        "type": parse_type(ret_type_node.type, extract_src_text(ret_type_node)),
         "declarators": [
             {
                 "kind": "declarator",
                 "indirect_type": {"kind": "function", "params": params},
-                "name": decl_name,
+                "name": func_name,
             }
-        ]
+        ],
     }
 
-    return func
+
+def parse_func_decl(node):
+    match types := [child_node.type for child_node in node.children]:
+        case ["identifier", "parameter_list"]:
+            func_name = extract_src_text(node.children[0])
+            params = parse_params(node.children[1])
+        case _:
+            raise NotImplementedError(
+                f"Unhandled funcation delcaration form in parse_func_decl(): #{types}"
+            )
+    return (func_name, params)
 
 
 ###########################################################################
@@ -270,4 +280,4 @@ if __name__ == "__main__":
     tree = parser.parse(header_source)
     yaml = parse_translation_unit(tree.root_node)
     print(dump(yaml, sort_keys=False, explicit_start=True).strip())
-    # print(str(tree.root_node))
+    # print(str(tree.root_node))    # Uncomment to print AST as an S-expression
