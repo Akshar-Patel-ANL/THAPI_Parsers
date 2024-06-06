@@ -1,2 +1,2 @@
 void foo(int a);
-char bar(long b);
+char bar(char b);

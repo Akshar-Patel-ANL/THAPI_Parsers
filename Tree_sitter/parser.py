@@ -161,10 +161,18 @@ def parse_func(node, points = 0, ret_type_dict = {}) -> dict:
             ret_type_node, func_decl_node, _ = node.children
             ret_type_dict = parse_type(ret_type_node)
             func_name, params = parse_func_decl(func_decl_node)
+            if params:
+                params_dict = {"params": params}
+            else:
+                params_dict = {}
             pointer_dict = {}
         case ["*", "function_declarator"]:  # When return type is a pointer (return value is stored with the first pointer higher in the AST)
             _, func_decl_node = node.children
             func_name, params = parse_func_decl(func_decl_node)
+            if params:
+                params_dict = {"params": params}
+            else:
+                params_dict = {}
             pointer_dict = {"type": {"kind": "pointer"}}
             while points > 1:
                 pointer_dict = {"type": {"kind": "pointer"} | pointer_dict}
@@ -182,7 +190,7 @@ def parse_func(node, points = 0, ret_type_dict = {}) -> dict:
                 "indirect_type": 
                     {"kind": "function"}
                     | pointer_dict
-                    | {"params": params},
+                    | params_dict,
                 "name": func_name,
             }
         ],
