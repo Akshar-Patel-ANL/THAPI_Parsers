@@ -1,2 +1,1 @@
-int test(int test1);
-int foo(int *bar);
+int** test(char** bar);
