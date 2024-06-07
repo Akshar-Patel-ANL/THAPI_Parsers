@@ -77,7 +77,7 @@ def parse_type(t, form = "decl"):
                 case "param":
                     return t.to_THAPI_param()
                 case _:
-                    raise NotImplementedError(f"Missing parsing for for THAPI_types: #{call}")
+                    raise NotImplementedError(f"Missing parsing for for THAPI_types: #{form}")
         case _:
             raise NotImplementedError(f"parse_type: #{k}")
 
@@ -130,7 +130,7 @@ def parse_function_decl(t):
                 "indirect_type": 
                     {"kind": "function"}
                     | ptr_dict
-                    | {"params": [parse_parameter(a) for a in t.get_arguments()]},
+                    | ({"params": [parse_parameter(a) for a in t.get_arguments()]} if [parse_parameter(a) for a in t.get_arguments()] else {}),
                 "name": t.spelling,
             },
         ],

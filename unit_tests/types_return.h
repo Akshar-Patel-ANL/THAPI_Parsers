@@ -1,0 +1,18 @@
+float foo_float();
+double foo_double();
+long double foo_long_double();
+int foo_int();
+unsigned int foo_unsigned_int();
+signed int foo_signed_int();
+short foo_short();
+unsigned short foo_unsigned_short();
+signed short foo_signed_short();
+long foo_long();
+unsigned long foo_unsigned_long();
+signed long foo_signed_long();
+long long foo_long_long();
+unsigned long long foo_unsigned_long_long();
+signed long long foo_signed_long_long();
+char foo_char();
+unsigned char foo_unsigned_char();
+signed char foo_signed_char();
