@@ -4,7 +4,7 @@ import sys
 from collections import defaultdict
 
 THAPI_types = {
-    clang.cindex.TypeKind.VOID: {"kind": "void"}, 
+    clang.cindex.TypeKind.VOID: {"kind": "void"},
     clang.cindex.TypeKind.FLOAT: {"kind": "float"},
     clang.cindex.TypeKind.DOUBLE: {"kind": "float", "longness": 1},
     clang.cindex.TypeKind.LONGDOUBLE: {"kind": "float", "longness": 2},
@@ -22,17 +22,23 @@ THAPI_types = {
     clang.cindex.TypeKind.SCHAR: {"kind": "char", "signed": True},
 }
 
+
 def to_THAPI_param(self):
     k = self.kind
     if k == clang.cindex.TypeKind.POINTER:
         return {"kind": "pointer", "type": to_THAPI_param(self.get_pointee())}
     return THAPI_types[k]
+
+
 clang.cindex.Type.to_THAPI_param = to_THAPI_param
 
+
 def to_THAPI_decl(self):
-    k = self.kind
-    return THAPI_types[k]
+    return THAPI_types[self.kind]
+
+
 clang.cindex.Type.to_THAPI_decl = to_THAPI_decl
+
 
 def parse_translation_unit(t):
     # d_entities = defaultdict(list)
@@ -57,7 +63,7 @@ def parse_translation_unit(t):
     # return {"kind": "translation_unit", "entities": dict(d_entities)}
 
 
-def parse_type(t, form = "decl"):
+def parse_type(t, form="decl"):
     match k := t.kind:
         case clang.cindex.TypeKind.ELABORATED:
             d = t.get_declaration()
@@ -77,60 +83,58 @@ def parse_type(t, form = "decl"):
                 case "param":
                     return t.to_THAPI_param()
                 case _:
-                    raise NotImplementedError(f"Missing parsing for for THAPI_types: #{form}")
+                    raise NotImplementedError(
+                        f"Missing parsing for for THAPI_types: #{form}"
+                    )
         case _:
             raise NotImplementedError(f"parse_type: #{k}")
 
 
 def parse_parameter(t):
-    return {"kind": "parameter", "type": parse_type(t.type, "param"), "name": t.spelling}
+    return {
+        "kind": "parameter",
+        "type": parse_type(t.type, "param"),
+        "name": t.spelling,
+    }
 
 
 def parse_typedef_decl(t):
     type_node = t.underlying_typedef_type
-    points = 0
-    while type_node.kind == clang.cindex.TypeKind.POINTER:
-        type_node = type_node.get_pointee()
-        points += 1
     ptr_dict = {}
-    if points > 0:
+    if type_node.kind == clang.cindex.TypeKind.POINTER:
         ptr_dict = {"kind": "pointer"}
-        while points > 1:
+        type_node = type_node.get_pointee()
+        while type_node.kind == clang.cindex.TypeKind.POINTER:
             ptr_dict = {"kind": "pointer", "type": ptr_dict}
-            points -= 1
+            type_node = type_node.get_pointee()
         ptr_dict = {"indirect_type": ptr_dict}
     return {
         "kind": "declaration",
         "storage": ":typedef",
         "type": parse_type(type_node),
-        "declarators": [{"kind": "declarator"}
-                        | ptr_dict
-                        | {"name": t.spelling}],
+        "declarators": [{"kind": "declarator"} | ptr_dict | {"name": t.spelling}],
     }
 
 
 def parse_function_decl(t):
     type_node = t.type.get_result()
-    points = 0
-    while type_node.kind == clang.cindex.TypeKind.POINTER:
-        type_node = type_node.get_pointee()
-        points += 1
     ptr_dict = {}
-    if points > 0:
-        ptr_dict = {"type": {"kind": "pointer"}}
-        while points > 1:
-            ptr_dict = {"type": {"kind": "pointer"} | ptr_dict}
-            points -= 1
+    while type_node.kind == clang.cindex.TypeKind.POINTER:
+        ptr_dict = {"type": {"kind": "pointer"} | ptr_dict}
+        type_node = type_node.get_pointee()
     return {
         "kind": "declaration",
         "type": parse_type(type_node),
         "declarators": [
             {
                 "kind": "declarator",
-                "indirect_type": 
-                    {"kind": "function"}
-                    | ptr_dict
-                    | ({"params": [parse_parameter(a) for a in t.get_arguments()]} if [parse_parameter(a) for a in t.get_arguments()] else {}),
+                "indirect_type": {"kind": "function"}
+                | ptr_dict
+                | (
+                    {"params": [parse_parameter(a) for a in t.get_arguments()]}
+                    if [parse_parameter(a) for a in t.get_arguments()]
+                    else {}
+                ),
                 "name": t.spelling,
             },
         ],
@@ -179,4 +183,8 @@ if __name__ == "__main__":
     t = clang.cindex.Index.create().parse(sys.argv[1]).cursor
     d = parse_translation_unit(t)
     yaml.Dumper.ignore_aliases = lambda *args: True
-    print(yaml.dump(d, sort_keys=False, explicit_start=True, default_flow_style=False).strip())
+    print(
+        yaml.dump(
+            d, sort_keys=False, explicit_start=True, default_flow_style=False
+        ).strip()
+    )
