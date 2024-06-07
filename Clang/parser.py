@@ -9,7 +9,7 @@ THAPI_types = {
     clang.cindex.TypeKind.DOUBLE: {"kind": "float", "longness": 1},
     clang.cindex.TypeKind.LONGDOUBLE: {"kind": "float", "longness": 2},
     clang.cindex.TypeKind.INT: {"kind": "int"},
-    clang.cindex.TypeKind.UINT: {"kind": "int"},
+    clang.cindex.TypeKind.UINT: {"kind": "int", "unsigned": True},
     clang.cindex.TypeKind.SHORT: {"kind": "int", "longness": -1},
     clang.cindex.TypeKind.USHORT: {"kind": "int", "longness": -1, "unsigned": True},
     clang.cindex.TypeKind.LONG: {"kind": "int", "longness": 1},
@@ -57,7 +57,7 @@ def parse_translation_unit(t):
     # return {"kind": "translation_unit", "entities": dict(d_entities)}
 
 
-def parse_type(t):
+def parse_type(t, form = "decl"):
     match k := t.kind:
         case clang.cindex.TypeKind.ELABORATED:
             d = t.get_declaration()
@@ -71,39 +71,59 @@ def parse_type(t):
                 case _:
                     raise NotImplementedError(f"parse_type_ELABORATED: #{ke}")
         case type if type in list(THAPI_types.keys()) + [clang.cindex.TypeKind.POINTER]:
-            return t.to_THAPI_param()
+            match form:
+                case "decl":
+                    return t.to_THAPI_decl()
+                case "param":
+                    return t.to_THAPI_param()
+                case _:
+                    raise NotImplementedError(f"Missing parsing for for THAPI_types: #{call}")
         case _:
             raise NotImplementedError(f"parse_type: #{k}")
 
 
 def parse_parameter(t):
-    return {"kind": "parameter", "type": parse_type(t.type), "name": t.spelling}
+    return {"kind": "parameter", "type": parse_type(t.type, "param"), "name": t.spelling}
 
 
 def parse_typedef_decl(t):
+    type_node = t.underlying_typedef_type
+    points = 0
+    while type_node.kind == clang.cindex.TypeKind.POINTER:
+        type_node = type_node.get_pointee()
+        points += 1
+    ptr_dict = {}
+    if points > 0:
+        ptr_dict = {"kind": "pointer"}
+        while points > 1:
+            ptr_dict = {"kind": "pointer", "type": ptr_dict}
+            points -= 1
+        ptr_dict = {"indirect_type": ptr_dict}
     return {
         "kind": "declaration",
         "storage": ":typedef",
-        "type": parse_type(t.underlying_typedef_type),
-        "declarators": [{"kind": "declarator", "name": t.spelling}],
+        "type": parse_type(type_node),
+        "declarators": [{"kind": "declarator"}
+                        | ptr_dict
+                        | {"name": t.spelling}],
     }
 
 
 def parse_function_decl(t):
-    ret_node = t.type.get_result()
+    type_node = t.type.get_result()
     points = 0
-    print(ret_node.kind)
-    while ret_node.kind == clang.cindex.TypeKind.POINTER:
-        ret_node = ret_node.get_pointee()
+    while type_node.kind == clang.cindex.TypeKind.POINTER:
+        type_node = type_node.get_pointee()
         points += 1
     ptr_dict = {}
     if points > 0:
         ptr_dict = {"type": {"kind": "pointer"}}
         while points > 1:
-            ptr_dict = {"type": {"kind": "points"} | ptr_dict}
+            ptr_dict = {"type": {"kind": "pointer"} | ptr_dict}
+            points -= 1
     return {
         "kind": "declaration",
-        "type": t.type.to_THAPI_decl(),
+        "type": parse_type(type_node),
         "declarators": [
             {
                 "kind": "declarator",
