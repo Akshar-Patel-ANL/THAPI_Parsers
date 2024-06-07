@@ -161,10 +161,10 @@ def parse_struct_decl(t):
 
 
 def parse_enum(t, a):
-    return {
-        "kind": "enumerator",
-        "name": t.spelling,
-        "val": {"kind": str(a.kind), "val": t.enum_value},
+                return {
+                    "kind": "enumerator",
+                    "name": t.spelling,
+            "val": {"kind": str(a.kind), "val": t.enum_value},
     }
 
 
