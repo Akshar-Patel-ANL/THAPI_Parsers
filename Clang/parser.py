@@ -24,16 +24,17 @@ THAPI_types = {
 
 
 def to_THAPI_param(self):
-    k = self.kind
-    if k == clang.cindex.TypeKind.POINTER:
+    if self.kind == clang.cindex.TypeKind.POINTER:
         return {"kind": "pointer", "type": to_THAPI_param(self.get_pointee())}
-    return THAPI_types[k]
+    return THAPI_types[self.kind]
 
 
 clang.cindex.Type.to_THAPI_param = to_THAPI_param
 
 
 def to_THAPI_decl(self):
+    if self.kind == clang.cindex.TypeKind.POINTER:
+        return to_THAPI_decl(self.get_pointee())
     return THAPI_types[self.kind]
 
 
@@ -83,9 +84,7 @@ def parse_type(t, form="decl"):
                 case "param":
                     return t.to_THAPI_param()
                 case _:
-                    raise NotImplementedError(
-                        f"Missing parsing for for THAPI_types: #{form}"
-                    )
+                    raise NotImplementedError(f"parse_type form: #{form}")
         case _:
             raise NotImplementedError(f"parse_type: #{k}")
 
@@ -100,28 +99,18 @@ def parse_parameter(t):
 
 def parse_typedef_decl(t):
     type_node = t.underlying_typedef_type
-    ptr_dict = {}
-    if type_node.kind == clang.cindex.TypeKind.POINTER:
-        ptr_dict = {"kind": "pointer"}
-        type_node = type_node.get_pointee()
-        while type_node.kind == clang.cindex.TypeKind.POINTER:
-            ptr_dict = {"kind": "pointer", "type": ptr_dict}
-            type_node = type_node.get_pointee()
-        ptr_dict = {"indirect_type": ptr_dict}
     return {
         "kind": "declaration",
         "storage": ":typedef",
         "type": parse_type(type_node),
-        "declarators": [{"kind": "declarator"} | ptr_dict | {"name": t.spelling}],
+        "declarators": [{"kind": "declarator"}
+                        | parse_pointer(type_node, "typedef")
+                        | {"name": t.spelling}],
     }
 
 
 def parse_function_decl(t):
     type_node = t.type.get_result()
-    ptr_dict = {}
-    while type_node.kind == clang.cindex.TypeKind.POINTER:
-        ptr_dict = {"type": {"kind": "pointer"} | ptr_dict}
-        type_node = type_node.get_pointee()
     return {
         "kind": "declaration",
         "type": parse_type(type_node),
@@ -129,7 +118,7 @@ def parse_function_decl(t):
             {
                 "kind": "declarator",
                 "indirect_type": {"kind": "function"}
-                | ptr_dict
+                | parse_pointer(type_node, "func")
                 | (
                     {"params": [parse_parameter(a) for a in t.get_arguments()]}
                     if [parse_parameter(a) for a in t.get_arguments()]
@@ -139,6 +128,26 @@ def parse_function_decl(t):
             },
         ],
     }
+
+
+
+def parse_pointer(t, form):
+    if t.kind == clang.cindex.TypeKind.POINTER:
+        ptr_dict = {"kind": "pointer"}
+        type_node = t.get_pointee()
+        while type_node.kind == clang.cindex.TypeKind.POINTER:
+            ptr_dict = {"kind": "pointer", "type": ptr_dict}
+            type_node = type_node.get_pointee()
+        match form:
+            case "func":
+                return {"type": ptr_dict}
+            case "typedef":
+                return {"indirect_type": ptr_dict}
+            case _:
+                raise NotImplementedError(f"parse_pointer form: #{form}")
+    else:
+        return {}
+
 
 
 def parse_field(t):
