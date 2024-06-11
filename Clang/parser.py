@@ -196,6 +196,6 @@ if __name__ == "__main__":
     yaml.Dumper.ignore_aliases = lambda *args: True
     print(
         yaml.dump(
-            d, sort_keys=False, explicit_start=True, default_flow_style=False, Dumper=NoAliasDumper
+            d, sort_keys=False, explicit_start=True, default_flow_style=False,
         ).strip()
     )
