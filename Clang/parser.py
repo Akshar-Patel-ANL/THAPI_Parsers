@@ -3,6 +3,43 @@ import yaml
 import sys
 from collections import defaultdict
 
+THAPI_types = {
+    clang.cindex.TypeKind.VOID: {"kind": "void"},
+    clang.cindex.TypeKind.FLOAT: {"kind": "float"},
+    clang.cindex.TypeKind.DOUBLE: {"kind": "float", "longness": 1},
+    clang.cindex.TypeKind.LONGDOUBLE: {"kind": "float", "longness": 2},
+    clang.cindex.TypeKind.INT: {"kind": "int"},
+    clang.cindex.TypeKind.UINT: {"kind": "int", "unsigned": True},
+    clang.cindex.TypeKind.SHORT: {"kind": "int", "longness": -1},
+    clang.cindex.TypeKind.USHORT: {"kind": "int", "longness": -1, "unsigned": True},
+    clang.cindex.TypeKind.LONG: {"kind": "int", "longness": 1},
+    clang.cindex.TypeKind.ULONG: {"kind": "int", "longness": 1, "unsigned": True},
+    clang.cindex.TypeKind.LONGLONG: {"kind": "int", "longness": 2},
+    clang.cindex.TypeKind.ULONGLONG: {"kind": "int", "longness": 2, "unsigned": True},
+    clang.cindex.TypeKind.CHAR_U: {"kind": "char"},
+    clang.cindex.TypeKind.UCHAR: {"kind": "char"},
+    clang.cindex.TypeKind.CHAR_S: {"kind": "char"},
+    clang.cindex.TypeKind.SCHAR: {"kind": "char", "signed": True},
+}
+
+
+def to_THAPI_param(self):
+    if self.kind == clang.cindex.TypeKind.POINTER:
+        return {"kind": "pointer", "type": to_THAPI_param(self.get_pointee())}
+    return THAPI_types[self.kind]
+
+
+clang.cindex.Type.to_THAPI_param = to_THAPI_param
+
+
+def to_THAPI_decl(self):
+    if self.kind == clang.cindex.TypeKind.POINTER:
+        return to_THAPI_decl(self.get_pointee())
+    return THAPI_types[self.kind]
+
+
+clang.cindex.Type.to_THAPI_decl = to_THAPI_decl
+
 
 def parse_translation_unit(t):
     # d_entities = defaultdict(list)
@@ -27,7 +64,7 @@ def parse_translation_unit(t):
     # return {"kind": "translation_unit", "entities": dict(d_entities)}
 
 
-def parse_type(t):
+def parse_type(t, form="decl"):
     match k := t.kind:
         case clang.cindex.TypeKind.ELABORATED:
             d = t.get_declaration()
@@ -40,44 +77,77 @@ def parse_type(t):
                     return {"kind": "enum", "name": d.spelling}
                 case _:
                     raise NotImplementedError(f"parse_type_ELABORATED: #{ke}")
-        case (
-            clang.cindex.TypeKind.INT
-            | clang.cindex.TypeKind.CHAR_S
-            | clang.cindex.TypeKind.DOUBLE
-        ):
-            return {"kind": str(k)}
+        case type if type in list(THAPI_types.keys()) + [clang.cindex.TypeKind.POINTER]:
+            match form:
+                case "decl":
+                    return t.to_THAPI_decl()
+                case "param":
+                    return t.to_THAPI_param()
+                case _:
+                    raise NotImplementedError(f"parse_type form: #{form}")
         case _:
             raise NotImplementedError(f"parse_type: #{k}")
 
 
 def parse_parameter(t):
-    return {"kind": "parameter", "type": parse_type(t.type), "name": t.spelling}
+    return {
+        "kind": "parameter",
+        "type": parse_type(t.type, "param"),
+        "name": t.spelling,
+    }
 
 
 def parse_typedef_decl(t):
+    type_node = t.underlying_typedef_type
     return {
         "kind": "declaration",
         "storage": ":typedef",
-        "type": parse_type(t.underlying_typedef_type),
-        "declarators": [{"kind": "declarator", "name": t.spelling}],
+        "type": parse_type(type_node),
+        "declarators": [{"kind": "declarator"}
+                        | parse_pointer(type_node, "typedef")
+                        | {"name": t.spelling}],
     }
 
 
 def parse_function_decl(t):
+    type_node = t.type.get_result()
     return {
         "kind": "declaration",
-        "type": {"kind": str(t.type.get_result().kind)},
+        "type": parse_type(type_node),
         "declarators": [
             {
                 "kind": "declarator",
-                "indirect_type": {
-                    "kind": "function",
-                    "params": [parse_parameter(a) for a in t.get_arguments()],
-                },
+                "indirect_type": {"kind": "function"}
+                | parse_pointer(type_node, "func")
+                | (
+                    {"params": [parse_parameter(a) for a in t.get_arguments()]}
+                    if [parse_parameter(a) for a in t.get_arguments()]
+                    else {}
+                ),
                 "name": t.spelling,
             },
         ],
     }
+
+
+
+def parse_pointer(t, form):
+    if t.kind == clang.cindex.TypeKind.POINTER:
+        ptr_dict = {"kind": "pointer"}
+        type_node = t.get_pointee()
+        while type_node.kind == clang.cindex.TypeKind.POINTER:
+            ptr_dict = {"kind": "pointer", "type": ptr_dict}
+            type_node = type_node.get_pointee()
+        match form:
+            case "func":
+                return {"type": ptr_dict}
+            case "typedef":
+                return {"indirect_type": ptr_dict}
+            case _:
+                raise NotImplementedError(f"parse_pointer form: #{form}")
+    else:
+        return {}
+
 
 
 def parse_field(t):
@@ -100,10 +170,10 @@ def parse_struct_decl(t):
 
 
 def parse_enum(t, a):
-    return {
-        "kind": "enumerator",
-        "name": t.spelling,
-        "val": {"kind": str(a.kind), "val": t.enum_value},
+                return {
+                    "kind": "enumerator",
+                    "name": t.spelling,
+            "val": {"kind": str(a.kind), "val": t.enum_value},
     }
 
 
@@ -121,4 +191,11 @@ def parse_enum_decl(t):
 if __name__ == "__main__":
     t = clang.cindex.Index.create().parse(sys.argv[1]).cursor
     d = parse_translation_unit(t)
-    print(yaml.dump(d, sort_keys=False))
+    # Prevent yaml dumper from using anchors and aliases for repeated data in the yaml
+    # Done by monkey patching the ignore_aliases() function to always return True
+    yaml.Dumper.ignore_aliases = lambda *args: True
+    print(
+        yaml.dump(
+            d, sort_keys=False, explicit_start=True, default_flow_style=False, Dumper=NoAliasDumper
+        ).strip()
+    )

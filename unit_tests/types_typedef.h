@@ -1,0 +1,18 @@
+typedef float foo_float;
+typedef double foo_double;
+typedef long double foo_long_double;
+typedef int foo_int;
+typedef unsigned int foo_unsigned_int;
+typedef signed int foo_signed_int;
+typedef short foo_short;
+typedef unsigned short foo_unsigned_short;
+typedef signed short foo_signed_short;
+typedef long foo_long;
+typedef unsigned long foo_unsigned_long;
+typedef signed long foo_signed_long;
+typedef long long foo_long_long;
+typedef unsigned long long foo_unsigned_long_long;
+typedef signed long long foo_signed_long_long;
+typedef char foo_char;
+typedef unsigned char foo_unsigned_char;
+typedef signed char foo_signed_char;
