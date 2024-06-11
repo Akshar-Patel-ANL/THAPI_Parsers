@@ -191,9 +191,11 @@ def parse_enum_decl(t):
 if __name__ == "__main__":
     t = clang.cindex.Index.create().parse(sys.argv[1]).cursor
     d = parse_translation_unit(t)
+    # Prevent yaml dumper from using anchors and aliases for repeated data in the yaml
+    # Done by monkey patching the ignore_aliases() function to always return True
     yaml.Dumper.ignore_aliases = lambda *args: True
     print(
         yaml.dump(
-            d, sort_keys=False, explicit_start=True, default_flow_style=False
+            d, sort_keys=False, explicit_start=True, default_flow_style=False, Dumper=NoAliasDumper
         ).strip()
     )
