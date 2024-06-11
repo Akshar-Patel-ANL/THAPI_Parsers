@@ -1,0 +1,3 @@
+#include <sandbox.hpp>
+
+typedef int foo;

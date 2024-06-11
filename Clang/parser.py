@@ -141,7 +141,7 @@ def parse_pointer(t, form):
         match form:
             case "func":
                 return {"type": ptr_dict}
-            case "typedef":
+            case "typedef" | "struct" | "enum":
                 return {"indirect_type": ptr_dict}
             case _:
                 raise NotImplementedError(f"parse_pointer form: #{form}")
@@ -154,7 +154,9 @@ def parse_field(t):
     return {
         "kind": "declaration",
         "type": parse_type(t.type),
-        "declarators": [{"kind": "declarator", "name": t.spelling}],
+        "declarators": [{"kind": "declarator"}
+                        | parse_pointer(t.type, "struct")
+                        | {"name": t.spelling}],
     }
 
 
@@ -173,7 +175,7 @@ def parse_enum(t, a):
                 return {
                     "kind": "enumerator",
                     "name": t.spelling,
-            "val": {"kind": str(a.kind), "val": t.enum_value},
+            "val": {"kind": parse_type(t.type), "val": t.enum_value},
     }
 
 
@@ -188,14 +190,16 @@ def parse_enum_decl(t):
     }
 
 
-if __name__ == "__main__":
-    t = clang.cindex.Index.create().parse(sys.argv[1]).cursor
+if __name__ == "__main__": 
+    t = clang.cindex.Index.create().parse(sys.argv[1], args=sys.argv[2:]).cursor
+    # for w in t.diagnostics:
+    #     print(f"WARNING: {w}")
     d = parse_translation_unit(t)
     # Prevent yaml dumper from using anchors and aliases for repeated data in the yaml
     # Done by monkey patching the ignore_aliases() function to always return True
     yaml.Dumper.ignore_aliases = lambda *args: True
     print(
         yaml.dump(
-            d, sort_keys=False, explicit_start=True, default_flow_style=False, Dumper=NoAliasDumper
+            d, sort_keys=False, explicit_start=True, default_flow_style=False,
         ).strip()
     )
