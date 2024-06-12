@@ -2,6 +2,7 @@ import clang.cindex
 import yaml
 import sys
 from collections import defaultdict
+import copy
 
 THAPI_types = {
     clang.cindex.TypeKind.VOID: {"kind": "void"},
@@ -65,6 +66,7 @@ def parse_translation_unit(t):
 
 
 def parse_type(t, form="decl"):
+    # print(t.spelling)
     match k := t.kind:
         case clang.cindex.TypeKind.ELABORATED:
             d = t.get_declaration()
@@ -77,12 +79,16 @@ def parse_type(t, form="decl"):
                     return {"kind": "enum", "name": d.spelling}
                 case _:
                     raise NotImplementedError(f"parse_type_ELABORATED: #{ke}")
-        case type if type in list(THAPI_types.keys()) + [clang.cindex.TypeKind.POINTER]:
+        case type_name if type_name in list(THAPI_types.keys()) + [clang.cindex.TypeKind.POINTER]:
             match form:
                 case "decl":
                     return t.to_THAPI_decl()
                 case "param":
                     return t.to_THAPI_param()
+                case "enum":
+                    type_dict = copy.copy(t.to_THAPI_decl())
+                    type_dict["kind"] = type_dict["kind"] + "_literal"
+                    return type_dict
                 case _:
                     raise NotImplementedError(f"parse_type form: #{form}")
         case _:
@@ -175,7 +181,7 @@ def parse_enum(t, a):
                 return {
                     "kind": "enumerator",
                     "name": t.spelling,
-            "val": {"kind": parse_type(t.type), "val": t.enum_value},
+            "val": parse_type(t.type, "enum") | {"val": t.enum_value},
     }
 
 
