@@ -4,6 +4,8 @@ import sys
 from collections import defaultdict
 import copy
 
+
+
 THAPI_types = {
     clang.cindex.TypeKind.VOID: {"kind": "void"},
     clang.cindex.TypeKind.FLOAT: {"kind": "float"},
@@ -66,7 +68,6 @@ def parse_translation_unit(t):
 
 
 def parse_type(t, form="decl"):
-    # print(t.spelling)
     match k := t.kind:
         case clang.cindex.TypeKind.ELABORATED:
             d = t.get_declaration()
@@ -85,15 +86,13 @@ def parse_type(t, form="decl"):
                     return t.to_THAPI_decl()
                 case "param":
                     return t.to_THAPI_param()
-                case "enum":
-                    type_dict = copy.copy(t.to_THAPI_decl())
-                    type_dict["kind"] = type_dict["kind"] + "_literal"
-                    return type_dict
                 case _:
                     raise NotImplementedError(f"parse_type form: #{form}")
+        case clang.cindex.TypeKind.INCOMPLETEARRAY:
+            return {"kind": "array",
+                    "type": parse_type(t.element_type)}
         case _:
-            raise NotImplementedError(f"parse_type: #{k}")
-
+            raise NotImplementedError(f"parse_type: #{k}\nfile: {t.translation_unit.spelling}")
 
 def parse_parameter(t):
     return {
@@ -177,11 +176,26 @@ def parse_struct_decl(t):
     }
 
 
+def parse_val(t):
+    if t.enum_value < 0:
+        return {
+            "kind": "negative",
+            "expr": {
+                "kind": "int_literal",
+                "val": abs(t.enum_value),
+            },
+        }
+    else:
+        return{
+            "kind": "int_literal",
+            "val": t.enum_value,
+        }
+
 def parse_enum(t, a):
-                return {
-                    "kind": "enumerator",
-                    "name": t.spelling,
-            "val": parse_type(t.type, "enum") | {"val": t.enum_value},
+    return {
+        "kind": "enumerator",
+        "name": t.spelling,
+        "val": parse_val(t),
     }
 
 

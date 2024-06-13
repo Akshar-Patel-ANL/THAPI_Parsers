@@ -1,5 +1,5 @@
-enum hipUUID_t {
-    ONE = 1,
+enum foo {
+    ONE = -1,
     TWO = 2,
     THREE = 3,
-};
+}; 

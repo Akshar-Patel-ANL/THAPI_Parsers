@@ -130,3 +130,26 @@ Change the function return and type definition styles to match that of the param
   - kind: declarator
     name: foo
 ```
+## Integer literals
+
+Whenever an interger literal is found in a file, the ruby parser differentiates it from variable integers, but the clang parser we are using conflates these literal integers with variable integers to all be the same type, making it annoying to differentiate the two when making the yaml.
+
+### Example of ruby parser
+
+#### enum foo {ONE = 1};
+```yaml
+kind: translation_unit
+entities:
+- kind: declaration
+  type:
+    kind: enum
+    name: foo
+    members:
+    - kind: enumerator
+      name: ONE
+      val:
+        kind: int_literal
+        val: 1
+```
+
+Is it necessary to have `int_literal` rather than just `int`?
