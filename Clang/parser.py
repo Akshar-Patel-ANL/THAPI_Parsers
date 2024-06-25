@@ -83,10 +83,25 @@ def parse_type_decl(t):
         case type_name if type_name in list(THAPI_types.keys()) + [clang.cindex.TypeKind.POINTER]:
             return t.to_THAPI_decl()
         case clang.cindex.TypeKind.INCOMPLETEARRAY:
-            return {"kind": "array"}
+            if t.element_type.kind in [clang.cindex.TypeKind.INCOMPLETEARRAY, clang.cindex.TypeKind.CONSTANTARRAY]:
+                return {
+                    "kind": "array",
+                    "type": parse_type_decl(t.element_type),
+                }
+            else:
+                return {"kind": "array"}
         case clang.cindex.TypeKind.CONSTANTARRAY:
-            return {"kind": "array",
-                    "length": parse_val(t.element_count)}
+            if t.element_type.kind in [clang.cindex.TypeKind.INCOMPLETEARRAY, clang.cindex.TypeKind.CONSTANTARRAY]:
+                return {
+                    "kind": "array",
+                    "type": parse_type_decl(t.element_type),
+                    "length": parse_val(t.element_count),
+                }
+            else:
+                return {
+                    "kind": "array",
+                    "length": parse_val(t.element_count)
+                }
         case _:
             raise NotImplementedError(f"parse_type: #{k}\nfile: {t.translation_unit.spelling}")
 
@@ -111,9 +126,10 @@ def parse_type_param(t):
             return {"kind": "array",
                     "type": parse_type_param(t.element_type)}
         case clang.cindex.TypeKind.CONSTANTARRAY:
-            return{"kind": "array",
-                   "type": parse_type_param(t.element_type),
-                   "length": parse_val(t.element_count)}
+            return{
+                "kind": "array",
+                "type": parse_type_param(t.element_type),
+                "length": parse_val(t.element_count)}
         case _:
             raise NotImplementedError(f"parse_type: #{k}\nfile: {t.translation_unit.spelling}")
 
@@ -182,9 +198,12 @@ def parse_pointer(t, form):
 def parse_field(t):
     match k := t.type.kind:
         case clang.cindex.TypeKind.INCOMPLETEARRAY | clang.cindex.TypeKind.CONSTANTARRAY:
+            type_node = t.type
+            while type_node.element_type.kind in [clang.cindex.TypeKind.INCOMPLETEARRAY, clang.cindex.TypeKind.CONSTANTARRAY]:
+                type_node = type_node.element_type
             return {
                 "kind": "declaration",
-                "type": parse_type_decl(t.type.element_type),
+                "type": parse_type_decl(type_node.element_type),
                 "declarators": [{"kind": "declarator",
                                  "indirect_type": parse_type_decl(t.type),
                                  "name": t.spelling}]
