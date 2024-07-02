@@ -1,11 +1,24 @@
-name: Test 
+name: test 
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - full_header_support
+
 
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
+      - name: install python dependencies
+        run: pip install clang pyyaml
+
+      - name: install ruby
+        run: sudo apt update
+        run: sudo apt install ruby -y
+
+      - name: install ruby dependencies
+        run: sudo gem install yaml cast-to-yaml
+
       - name: run test
         run: ./clang-tester
