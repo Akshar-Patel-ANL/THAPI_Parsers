@@ -14,7 +14,6 @@ jobs:
         run: pip install clang pyyaml
 
       - name: install ruby
-        run: sudo apt update
         run: sudo apt install ruby -y
 
       - name: install ruby dependencies
