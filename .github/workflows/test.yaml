@@ -19,6 +19,9 @@ jobs:
       - name: install ruby dependencies
         run: sudo gem install yaml cast-to-yaml
 
+      - name: check directory
+        run: pwd
+        
       - name: run test
         run: |
           ret=0
