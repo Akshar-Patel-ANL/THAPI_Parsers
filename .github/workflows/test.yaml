@@ -46,4 +46,4 @@ jobs:
             ((ret += 1))
             fi
           done
-          exit($ret)
+          exit $ret
