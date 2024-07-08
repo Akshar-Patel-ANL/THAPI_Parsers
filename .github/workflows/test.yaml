@@ -9,7 +9,14 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: ./
     steps:
+      - name: checkout repo
+        uses: actions/checkout@v4
+
       - name: install python dependencies
         run: pip install clang pyyaml
 
@@ -18,9 +25,6 @@ jobs:
 
       - name: install ruby dependencies
         run: sudo gem install yaml cast-to-yaml
-
-      - name: check directory
-        run: ls
 
       - name: run test
         run: |
