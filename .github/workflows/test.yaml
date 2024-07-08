@@ -12,7 +12,6 @@ jobs:
     defaults:
       run:
         shell: bash
-        working-directory: ./
     steps:
       - name: get clang installer
         run: wget https://apt.llvm.org/llvm.sh
