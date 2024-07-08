@@ -46,4 +46,6 @@ jobs:
             ((ret += 1))
             fi
           done
+          echo number of cases failed:
+          echo $ret
           exit $ret
