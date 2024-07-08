@@ -18,7 +18,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: get clang installer
-        run: wget https://apt.llvm.org/llvm.shcd
+        run: wget https://apt.llvm.org/llvm.sh
 
       - name: make installer runable
         run: chmod +x llvm.sh
