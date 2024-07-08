@@ -17,14 +17,14 @@ jobs:
       - name: checkout repo
         uses: actions/checkout@v4
 
-      - name: move to library folder
-        run: cd ../../../
+      - name: get clang installer
+        run: wget https://apt.llvm.org/llvm.shcd
 
-      - name: create symbolic link between shared libraries (libclang patch)
-        run: ls
+      - name: make installer runable
+        run: chmod +x llvm.sh
 
-      - name: cd back to repository
-        run: cd ~
+      - name: install clang
+        run: sudo ./llvm.sh 17
 
       - name: install python dependencies
         run: pip install clang pyyaml
