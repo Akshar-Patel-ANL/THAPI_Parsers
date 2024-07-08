@@ -21,7 +21,7 @@ jobs:
         run: cd /usr/lib/llvm-17/lib
 
       - name: create symbolic link between shared libraries (libclang patch)
-        run: ln -s libclang-17.so.17 libclang-17.so
+        run: ls
 
       - name: cd back to repository
         run: cd ~
