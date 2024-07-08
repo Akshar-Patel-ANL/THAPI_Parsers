@@ -7,8 +7,13 @@ on:
 
 
 jobs:
-  setup:
+  test:
+    needs: setup
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: ./
     steps:
       - name: get clang installer
         run: wget https://apt.llvm.org/llvm.sh
@@ -27,14 +32,7 @@ jobs:
 
       - name: install ruby dependencies
         run: sudo gem install yaml cast-to-yaml
-  test:
-    needs: setup
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        shell: bash
-        working-directory: ./
-    steps:
+
       - name: checkout repo
         uses: actions/checkout@v4
 
