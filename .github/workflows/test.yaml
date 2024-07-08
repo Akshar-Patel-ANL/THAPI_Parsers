@@ -31,8 +31,9 @@ jobs:
       - name: install ruby dependencies
         run: sudo gem install yaml cast-to-yaml
 
-      - run: cd /usr/lib/x84_64-linux-gnu
-      - run: ln -s libclang-17.so.1 libclang-17.so
+      - run: cd /usr/lib/
+      - run: ls
+      # - run: ln -s libclang-17.so.1 libclang-17.so
 
       - name: checkout repo
         uses: actions/checkout@v4
