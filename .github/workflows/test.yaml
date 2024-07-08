@@ -11,22 +11,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: get clang installer
-          run: wget https://apt.llvm.org/llvm.sh
+        run: wget https://apt.llvm.org/llvm.sh
 
-        - name: make installer runable
-          run: chmod +x llvm.sh
+      - name: make installer runable
+        run: chmod +x llvm.sh
 
-        - name: install clang
-          run: sudo ./llvm.sh 17
+      - name: install clang
+        run: sudo ./llvm.sh 17
 
-        - name: install python dependencies
-          run: pip install clang pyyaml
+      - name: install python dependencies
+        run: pip install clang pyyaml
 
-        - name: install ruby
-          run: sudo apt install ruby -y
+      - name: install ruby
+        run: sudo apt install ruby -y
 
-        - name: install ruby dependencies
-          run: sudo gem install yaml cast-to-yaml
+      - name: install ruby dependencies
+        run: sudo gem install yaml cast-to-yaml
   test:
     runs-on: ubuntu-latest
     defaults:
