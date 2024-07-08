@@ -18,7 +18,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: move to library folder
-        run: cd /usr/lib/llvm-17/lib
+        run: cd ../../
 
       - name: create symbolic link between shared libraries (libclang patch)
         run: ls
