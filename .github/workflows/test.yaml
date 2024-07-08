@@ -17,6 +17,15 @@ jobs:
       - name: checkout repo
         uses: actions/checkout@v4
 
+      - name: move to library folder
+        run: cd /usr/lib/llvm-17/lib
+
+      - name: create symbolic link between shared libraries (libclang patch)
+        run: ln -s libclang-17.so.17 libclang-17.so
+
+      - name: cd back to repository
+        run: cd ~
+
       - name: install python dependencies
         run: pip install clang pyyaml
 
