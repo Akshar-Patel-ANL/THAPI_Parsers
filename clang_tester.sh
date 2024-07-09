@@ -6,7 +6,7 @@ for header in ./unit_tests/*.h; do
     python3 Clang/parser.py $header > ts.out
     if ! diff ruby.out ts.out
     then
-    ((ret += 1))
+    ((ret += 2))
     fi
 done
 echo number of cases failed:

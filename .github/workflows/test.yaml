@@ -1,10 +1,6 @@
 name: Running Unit Tests
 
-on:
-  push:
-    branches:
-      - full_header_support
-
+on: push
 
 jobs:
   test:
