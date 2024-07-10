@@ -56,7 +56,8 @@ def parse_translation_unit(t):
             case clang.cindex.CursorKind.FUNCTION_DECL:
                 entities.append(parse_function_decl(c))
             case clang.cindex.CursorKind.TYPEDEF_DECL:
-                entities.append(parse_typedef_decl(c))
+                if c.underlying_typedef_type.get_declaration().kind != clang.cindex.CursorKind.STRUCT_DECL:
+                    entities.append(parse_typedef_decl(c))
             case clang.cindex.CursorKind.STRUCT_DECL:
                 entities.append(parse_struct_decl(c))
             case clang.cindex.CursorKind.ENUM_DECL:
@@ -143,7 +144,7 @@ def parse_parameter(t):
 
 
 def parse_typedef_decl(t):
-    type_node = t.underlying_typedef_type
+    type_node = t.underlying_typedef_type 
     return {
         "kind": "declaration",
         "storage": ":typedef",
