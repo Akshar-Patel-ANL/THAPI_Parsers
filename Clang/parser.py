@@ -217,7 +217,6 @@ def parse_field(t):
 
 
 def parse_struct_decl(t):
-    print(t.type.kind)
     return {
         "kind": "declaration",
         "type": {
