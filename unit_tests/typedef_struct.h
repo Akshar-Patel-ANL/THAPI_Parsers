@@ -1,3 +1,3 @@
 typedef struct foo {
     int bar;
-} foo2;
+} foo;
