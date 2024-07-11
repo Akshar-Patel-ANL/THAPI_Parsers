@@ -1,0 +1,17 @@
+union {
+    struct {
+        int array;
+    } array;
+    struct {
+        float mipmap;
+    } mipmap;
+    struct {
+        void* devPtr;
+        char bar;
+        int sizeInBytes;
+    } linear;
+    struct {
+        void* devPtr;
+        int pitchInBytes;
+    } pitch2D;
+} res;

@@ -43,17 +43,6 @@ def to_THAPI_decl(self):
 
 clang.cindex.Type.to_THAPI_decl = to_THAPI_decl
 
-def match_typedef_struct(struct, typedef):
-    pass
-
-def merge_typedef_struct(struct, typedef):
-    merged_dict ={
-        "kind": "declaration",
-        "storage": ":typedef",
-        "type": struct["type"],
-        "declarators": typedef["declarators"],
-    }
-
 def parse_translation_unit(t):
     # d_entities = defaultdict(list)
     entities = []
@@ -65,17 +54,9 @@ def parse_translation_unit(t):
             case clang.cindex.CursorKind.FUNCTION_DECL:
                 entities.append(parse_function_decl(c))
             case clang.cindex.CursorKind.TYPEDEF_DECL:
-                if c.underlying_typedef_type.get_declaration().kind != clang.cindex.CursorKind.STRUCT_DECL:
-                    entities.append(parse_typedef_decl(c))
+                entities.append(parse_typedef_decl(c))
             case clang.cindex.CursorKind.STRUCT_DECL:
-                for c2 in t.get_children():
-                    if match_typdef_struct(c, c2):
-                        dict_struct = parse_struct_decl(c)
-                        dict_typedef = parse_typedef_decl(c2)
-                        entities.append(merge_typedef_struct(dict_struct, dict_typedef))
-                        break
-                else:
-                    entities.append(parse_struct_decl(c))
+                entities.append(parse_struct_decl(c))
             case clang.cindex.CursorKind.ENUM_DECL:
                 entities.append(parse_enum_decl(c))
             case _:
@@ -85,7 +66,6 @@ def parse_translation_unit(t):
 
 
 def parse_type_decl(t):
-
     match k := t.kind:
         case clang.cindex.TypeKind.ELABORATED:
             d = t.get_declaration()
