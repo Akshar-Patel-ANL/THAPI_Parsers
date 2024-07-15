@@ -2,7 +2,6 @@ import clang.cindex
 import yaml
 import sys
 from collections import defaultdict
-import copy
 
 clang.cindex.Config.set_library_file("/usr/lib/x86_64-linux-gnu/libclang-17.so.1")
 
@@ -40,9 +39,18 @@ def to_THAPI_decl(self):
         return to_THAPI_decl(self.get_pointee())
     return THAPI_types[self.kind]
 
-
 clang.cindex.Type.to_THAPI_decl = to_THAPI_decl
 
+def match_typedef_struct(struct, typedef):
+    return struct.spelling == typedef.underlying_typedef_type.get_declaration().spelling
+
+def merge_typedef_struct(struct, typedef):
+    return {
+        "kind": "declaration",
+        "storage": ":typedef",
+        "type": struct["type"],
+        "declarators": typedef["declarators"],
+    }
 
 def parse_translation_unit(t):
     # d_entities = defaultdict(list)
@@ -55,9 +63,17 @@ def parse_translation_unit(t):
             case clang.cindex.CursorKind.FUNCTION_DECL:
                 entities.append(parse_function_decl(c))
             case clang.cindex.CursorKind.TYPEDEF_DECL:
-                entities.append(parse_typedef_decl(c))
+                if c.underlying_typedef_type.get_declaration().kind != clang.cindex.CursorKind.STRUCT_DECL:
+                 entities.append(parse_typedef_decl(c))
             case clang.cindex.CursorKind.STRUCT_DECL:
-                entities.append(parse_struct_decl(c))
+                for c2 in t.get_children():
+                    if match_typedef_struct(c, c2):
+                        dict_struct = parse_struct_decl(c)
+                        dict_typedef = parse_typedef_decl(c2)
+                        entities.append(merge_typedef_struct(dict_struct, dict_typedef))
+                        break
+                else:
+                    entities.append(parse_struct_decl(c))
             case clang.cindex.CursorKind.ENUM_DECL:
                 entities.append(parse_enum_decl(c))
             case _:
@@ -79,15 +95,10 @@ def parse_type_decl(t):
                     return {"kind": "enum", "name": d.spelling}
                 case _:
                     raise NotImplementedError(f"parse_type_ELABORATED: #{ke}")
-        case type_name if type_name in list(THAPI_types.keys()) + [
-            clang.cindex.TypeKind.POINTER
-        ]:
+        case type_name if type_name in list(THAPI_types.keys()) + [clang.cindex.TypeKind.POINTER]:
             return t.to_THAPI_decl()
         case clang.cindex.TypeKind.INCOMPLETEARRAY:
-            if t.element_type.kind in [
-                clang.cindex.TypeKind.INCOMPLETEARRAY,
-                clang.cindex.TypeKind.CONSTANTARRAY,
-            ]:
+            if t.element_type.kind in [clang.cindex.TypeKind.INCOMPLETEARRAY, clang.cindex.TypeKind.CONSTANTARRAY]:
                 return {
                     "kind": "array",
                     "type": parse_type_decl(t.element_type),
@@ -95,21 +106,20 @@ def parse_type_decl(t):
             else:
                 return {"kind": "array"}
         case clang.cindex.TypeKind.CONSTANTARRAY:
-            if t.element_type.kind in [
-                clang.cindex.TypeKind.INCOMPLETEARRAY,
-                clang.cindex.TypeKind.CONSTANTARRAY,
-            ]:
+            if t.element_type.kind in [clang.cindex.TypeKind.INCOMPLETEARRAY, clang.cindex.TypeKind.CONSTANTARRAY]:
                 return {
                     "kind": "array",
                     "type": parse_type_decl(t.element_type),
                     "length": parse_val(t.element_count),
                 }
             else:
-                return {"kind": "array", "length": parse_val(t.element_count)}
+                return {
+                    "kind": "array",
+                    "length": parse_val(t.element_count)
+                }
         case _:
-            raise NotImplementedError(
-                f"parse_type: #{k}\nfile: {t.translation_unit.spelling}"
-            )
+            raise NotImplementedError(f"parse_type: #{k}\nfile: {t.translation_unit.spelling}")
+
 
 
 def parse_type_param(t):
@@ -125,22 +135,18 @@ def parse_type_param(t):
                     return {"kind": "enum", "name": d.spelling}
                 case _:
                     raise NotImplementedError(f"parse_type_ELABORATED: #{ke}")
-        case type_name if type_name in list(THAPI_types.keys()) + [
-            clang.cindex.TypeKind.POINTER
-        ]:
+        case type_name if type_name in list(THAPI_types.keys()) + [clang.cindex.TypeKind.POINTER]:
             return t.to_THAPI_param()
         case clang.cindex.TypeKind.INCOMPLETEARRAY:
-            return {"kind": "array", "type": parse_type_param(t.element_type)}
+            return {"kind": "array",
+                    "type": parse_type_param(t.element_type)}
         case clang.cindex.TypeKind.CONSTANTARRAY:
-            return {
+            return{
                 "kind": "array",
                 "type": parse_type_param(t.element_type),
-                "length": parse_val(t.element_count),
-            }
+                "length": parse_val(t.element_count)}
         case _:
-            raise NotImplementedError(
-                f"parse_type: #{k}\nfile: {t.translation_unit.spelling}"
-            )
+            raise NotImplementedError(f"parse_type: #{k}\nfile: {t.translation_unit.spelling}")
 
 
 def parse_parameter(t):
@@ -152,16 +158,14 @@ def parse_parameter(t):
 
 
 def parse_typedef_decl(t):
-    type_node = t.underlying_typedef_type
+    type_node = t.underlying_typedef_type 
     return {
         "kind": "declaration",
         "storage": ":typedef",
         "type": parse_type_decl(type_node),
-        "declarators": [
-            {"kind": "declarator"}
-            | parse_pointer(type_node, "typedef")
-            | {"name": t.spelling}
-        ],
+        "declarators": [{"kind": "declarator"}
+                        | parse_pointer(type_node, "typedef")
+                        | {"name": t.spelling}],
     }
 
 
@@ -186,6 +190,7 @@ def parse_function_decl(t):
     }
 
 
+
 def parse_pointer(t, form):
     if t.kind == clang.cindex.TypeKind.POINTER:
         ptr_dict = {"kind": "pointer"}
@@ -204,37 +209,27 @@ def parse_pointer(t, form):
         return {}
 
 
+
 def parse_field(t):
     match k := t.type.kind:
-        case (
-            clang.cindex.TypeKind.INCOMPLETEARRAY | clang.cindex.TypeKind.CONSTANTARRAY
-        ):
+        case clang.cindex.TypeKind.INCOMPLETEARRAY | clang.cindex.TypeKind.CONSTANTARRAY:
             type_node = t.type
-            while type_node.element_type.kind in [
-                clang.cindex.TypeKind.INCOMPLETEARRAY,
-                clang.cindex.TypeKind.CONSTANTARRAY,
-            ]:
+            while type_node.element_type.kind in [clang.cindex.TypeKind.INCOMPLETEARRAY, clang.cindex.TypeKind.CONSTANTARRAY]:
                 type_node = type_node.element_type
             return {
                 "kind": "declaration",
                 "type": parse_type_decl(type_node.element_type),
-                "declarators": [
-                    {
-                        "kind": "declarator",
-                        "indirect_type": parse_type_decl(t.type),
-                        "name": t.spelling,
-                    }
-                ],
+                "declarators": [{"kind": "declarator",
+                                 "indirect_type": parse_type_decl(t.type),
+                                 "name": t.spelling}]
             }
         case _:
             return {
                 "kind": "declaration",
                 "type": parse_type_decl(t.type),
-                "declarators": [
-                    {"kind": "declarator"}
-                    | parse_pointer(t.type, "struct")
-                    | {"name": t.spelling}
-                ],
+                "declarators": [{"kind": "declarator"}
+                                | parse_pointer(t.type, "struct")
+                                | {"name": t.spelling}],
             }
 
 
@@ -243,9 +238,12 @@ def parse_struct_decl(t):
         "kind": "declaration",
         "type": {
             "kind": "struct",
-            "name": t.spelling,
-            "members": [parse_field(a) for a in t.type.get_fields()],
-        },
+            "name": t.spelling
+        }
+        | (
+            {"members": [parse_field(a) for a in t.type.get_fields()]}
+           if [parse_field(a) for a in t.type.get_fields()]
+           else {}),
     }
 
 
@@ -259,11 +257,10 @@ def parse_val(v):
             },
         }
     else:
-        return {
+        return{
             "kind": "int_literal",
             "val": v,
         }
-
 
 def parse_enum(t):
     return {
@@ -284,7 +281,7 @@ def parse_enum_decl(t):
     }
 
 
-if __name__ == "__main__":
+if __name__ == "__main__": 
     t = clang.cindex.Index.create().parse(sys.argv[1], args=sys.argv[2:]).cursor
     # for w in t.diagnostics:
     #     print(f"WARNING: {w}")
@@ -294,10 +291,7 @@ if __name__ == "__main__":
     yaml.Dumper.ignore_aliases = lambda *args: True
     print(
         yaml.dump(
-            d,
-            sort_keys=False,
-            explicit_start=True,
-            default_flow_style=False,
+            d, sort_keys=False, explicit_start=True, default_flow_style=False,
         ).strip()
     )
 
