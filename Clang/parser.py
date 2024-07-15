@@ -2,7 +2,6 @@ import clang.cindex
 import yaml
 import sys
 from collections import defaultdict
-import copy
 
 clang.cindex.Config.set_library_file("/usr/lib/x86_64-linux-gnu/libclang-17.so.1")
 
@@ -44,6 +43,19 @@ def to_THAPI_decl(self):
 clang.cindex.Type.to_THAPI_decl = to_THAPI_decl
 
 
+def match_typedef_struct(struct, typedef):
+    return struct.spelling == typedef.underlying_typedef_type.get_declaration().spelling
+
+
+def merge_typedef_struct(struct, typedef):
+    return {
+        "kind": "declaration",
+        "storage": ":typedef",
+        "type": struct["type"],
+        "declarators": typedef["declarators"],
+    }
+
+
 def parse_translation_unit(t):
     # d_entities = defaultdict(list)
     entities = []
@@ -55,9 +67,18 @@ def parse_translation_unit(t):
             case clang.cindex.CursorKind.FUNCTION_DECL:
                 entities.append(parse_function_decl(c))
             case clang.cindex.CursorKind.TYPEDEF_DECL:
-                entities.append(parse_typedef_decl(c))
+                if (
+                    c.underlying_typedef_type.get_declaration().kind
+                    != clang.cindex.CursorKind.STRUCT_DECL
+                ):
+                    entities.append(parse_typedef_decl(c))
             case clang.cindex.CursorKind.STRUCT_DECL:
-                entities.append(parse_struct_decl(c))
+                dict_struct = parse_struct_decl(c)
+                # Check if the struct is typedef. If yes, need to modify the dict
+                dict_typedef = next((parse_typedef_decl(c2) for c2 in t.get_children() if match_typedef_struct(c, c2)), None)
+                if dict_typedef:
+                    dict_struct = merge_typedef_struct(dict_struct, dict_typedef)
+                entities.append(dict_struct)
             case clang.cindex.CursorKind.ENUM_DECL:
                 entities.append(parse_enum_decl(c))
             case _:
@@ -167,23 +188,25 @@ def parse_typedef_decl(t):
 
 def parse_function_decl(t):
     type_node = t.type.get_result()
+    params_d = {}
+    if params := [parse_parameter(a) for a in t.get_arguments()]:
+        params_d = {"params": params}
     return {
         "kind": "declaration",
         "type": parse_type_decl(type_node),
         "declarators": [
             {
                 "kind": "declarator",
-                "indirect_type": {"kind": "function"}
-                | parse_pointer(type_node, "func")
-                | (
-                    {"params": [parse_parameter(a) for a in t.get_arguments()]}
-                    if [parse_parameter(a) for a in t.get_arguments()]
-                    else {}
-                ),
+                "indirect_type":
+                    {"kind": "function"}
+                    | parse_pointer(type_node, "func")
+                    | params_d,
                 "name": t.spelling,
             },
         ],
     }
+
+
 
 
 def parse_pointer(t, form):
@@ -239,13 +262,14 @@ def parse_field(t):
 
 
 def parse_struct_decl(t):
+    members_d = {}
+    if members := [parse_field(a) for a in t.type.get_fields()]:
+        members_d = {"members": members}
     return {
-        "kind": "declaration",
-        "type": {
-            "kind": "struct",
-            "name": t.spelling,
-            "members": [parse_field(a) for a in t.type.get_fields()],
-        },
+            "kind": "declaration",
+            "type":
+                {"kind": "struct", "name": t.spelling}
+                | members_d,
     }
 
 
