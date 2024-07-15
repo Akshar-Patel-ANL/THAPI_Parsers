@@ -238,9 +238,13 @@ def parse_struct_decl(t):
         "kind": "declaration",
         "type": {
             "kind": "struct",
-            "name": t.spelling,
-            "members": [parse_field(a) for a in t.type.get_fields()],
-        },
+            "name": t.spelling
+        }
+        | (
+            {"members": [parse_field(a) for a in t.type.get_fields()]}
+           if [parse_field(a) for a in t.type.get_fields()]
+           else {}
+        ),
     }
 
 
