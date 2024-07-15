@@ -73,14 +73,12 @@ def parse_translation_unit(t):
                 ):
                     entities.append(parse_typedef_decl(c))
             case clang.cindex.CursorKind.STRUCT_DECL:
-                for c2 in t.get_children():
-                    if match_typedef_struct(c, c2):
-                        dict_struct = parse_struct_decl(c)
-                        dict_typedef = parse_typedef_decl(c2)
-                        entities.append(merge_typedef_struct(dict_struct, dict_typedef))
-                        break
-                else:
-                    entities.append(parse_struct_decl(c))
+                dict_struct = parse_struct_decl(c)
+                # Check if the struct is typedef. If yes, need to modify the dict
+               dict_typedef = next(parse_typedef_decl(c2) for c2 in t.get_children() if match_typedef_struct(c, c2), None )
+                if dict_typedef
+                       dict_struct = merge_typedef_struct(dict_struct, dict_typedef))
+                entities.append(dict_struct)
             case clang.cindex.CursorKind.ENUM_DECL:
                 entities.append(parse_enum_decl(c))
             case _:
