@@ -188,25 +188,46 @@ def parse_typedef_decl(t):
     }
 
 
+# def parse_function_decl(t):
+#     type_node = t.type.get_result()
+#     return {
+#         "kind": "declaration",
+#         "type": parse_type_decl(type_node),
+#         "declarators": [
+#             {
+#                 "kind": "declarator",
+#                 "indirect_type": {"kind": "function"}
+#                 | parse_pointer(type_node, "func")
+#                 | (
+#                     {"params": [parse_parameter(a) for a in t.get_arguments()]}
+#                     if [parse_parameter(a) for a in t.get_arguments()]
+#                     else {}
+#                 ),
+#                 "name": t.spelling,
+#             },
+#         ],
+#     }
+
 def parse_function_decl(t):
     type_node = t.type.get_result()
-    return {
+    dict = {
         "kind": "declaration",
         "type": parse_type_decl(type_node),
         "declarators": [
             {
                 "kind": "declarator",
-                "indirect_type": {"kind": "function"}
-                | parse_pointer(type_node, "func")
-                | (
-                    {"params": [parse_parameter(a) for a in t.get_arguments()]}
-                    if [parse_parameter(a) for a in t.get_arguments()]
-                    else {}
-                ),
+                "indirect_type":
+                    {"kind": "function"}
+                    | parse_pointer(type_node, "func"),
                 "name": t.spelling,
             },
         ],
     }
+    if params := [parse_parameter(a) for a in t.get_arguments()]:
+        dict["declarators"]["indirect_type"]["params"] = params
+    return dict
+
+
 
 
 def parse_pointer(t, form):
@@ -262,15 +283,14 @@ def parse_field(t):
 
 
 def parse_struct_decl(t):
-    return {
-        "kind": "declaration",
-        "type": {"kind": "struct", "name": t.spelling}
-        | (
-            {"members": [parse_field(a) for a in t.type.get_fields()]}
-            if [parse_field(a) for a in t.type.get_fields()]
-            else {}
-        ),
-    }
+    dict =  {
+            "kind": "declaration",
+            "type": {"kind": "struct", "name": t.spelling},
+        }
+    if members := [parse_field(a) for a in t.type.get_fields()]:
+            dict["members"] = members,
+    return dict
+
 
 
 def parse_val(v):
