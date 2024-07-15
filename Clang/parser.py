@@ -40,8 +40,18 @@ def to_THAPI_decl(self):
         return to_THAPI_decl(self.get_pointee())
     return THAPI_types[self.kind]
 
-
 clang.cindex.Type.to_THAPI_decl = to_THAPI_decl
+
+def match_typedef_struct(struct, typedef):
+    pass
+
+def merge_typedef_struct(struct, typedef):
+    return {
+        "kind": "declaration",
+        "storage": ":typedef",
+        "type": struct["type"],
+        "declarators": typedef["declarators"],
+    }
 
 def parse_translation_unit(t):
     # d_entities = defaultdict(list)
@@ -54,9 +64,17 @@ def parse_translation_unit(t):
             case clang.cindex.CursorKind.FUNCTION_DECL:
                 entities.append(parse_function_decl(c))
             case clang.cindex.CursorKind.TYPEDEF_DECL:
-                entities.append(parse_typedef_decl(c))
+                if c.underlying_typedef_type.get_declaration().kind != clang.cindex.CursorKind.STRUCT_DECL:
+                    entities.append(parse_typedef_decl(c))
             case clang.cindex.CursorKind.STRUCT_DECL:
-                entities.append(parse_struct_decl(c))
+                for c2 in t.get_children():
+                    if match_typedef_struct(c, c2):
+                        dict_struct = parse_struct_decl(c)
+                        dict_typedef = parse_typedef_decl(c2)
+                        entities.append(merge_typedef_struct(dict_struct, dict_typedef))
+                        break
+                else:
+                    entities.append(parse_struct_decl(c))
             case clang.cindex.CursorKind.ENUM_DECL:
                 entities.append(parse_enum_decl(c))
             case _:
