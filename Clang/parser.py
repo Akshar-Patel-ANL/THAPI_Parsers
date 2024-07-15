@@ -42,7 +42,7 @@ def to_THAPI_decl(self):
 clang.cindex.Type.to_THAPI_decl = to_THAPI_decl
 
 def match_typedef_struct(struct, typedef):
-    pass
+    return struct.spelling == typedef.underlying_typedef_type.get_declaration().spelling
 
 def merge_typedef_struct(struct, typedef):
     return {
@@ -64,7 +64,7 @@ def parse_translation_unit(t):
                 entities.append(parse_function_decl(c))
             case clang.cindex.CursorKind.TYPEDEF_DECL:
                 if c.underlying_typedef_type.get_declaration().kind != clang.cindex.CursorKind.STRUCT_DECL:
-                    entities.append(parse_typedef_decl(c))
+                 entities.append(parse_typedef_decl(c))
             case clang.cindex.CursorKind.STRUCT_DECL:
                 for c2 in t.get_children():
                     if match_typedef_struct(c, c2):
