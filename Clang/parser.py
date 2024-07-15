@@ -186,26 +186,6 @@ def parse_typedef_decl(t):
     }
 
 
-# def parse_function_decl(t):
-#     type_node = t.type.get_result()
-#     return {
-#         "kind": "declaration",
-#         "type": parse_type_decl(type_node),
-#         "declarators": [
-#             {
-#                 "kind": "declarator",
-#                 "indirect_type": {"kind": "function"}
-#                 | parse_pointer(type_node, "func")
-#                 | (
-#                     {"params": [parse_parameter(a) for a in t.get_arguments()]}
-#                     if [parse_parameter(a) for a in t.get_arguments()]
-#                     else {}
-#                 ),
-#                 "name": t.spelling,
-#             },
-#         ],
-#     }
-
 def parse_function_decl(t):
     type_node = t.type.get_result()
     params_d = {}
