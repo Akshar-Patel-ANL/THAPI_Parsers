@@ -2,7 +2,6 @@ import clang.cindex
 import yaml
 import sys
 from collections import defaultdict
-import copy
 
 clang.cindex.Config.set_library_file("/usr/lib/x86_64-linux-gnu/libclang-17.so.1")
 
