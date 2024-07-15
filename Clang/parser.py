@@ -210,7 +210,10 @@ def parse_typedef_decl(t):
 
 def parse_function_decl(t):
     type_node = t.type.get_result()
-    dict = {
+    params_d = {}
+    if params := [parse_parameter(a) for a in t.get_arguments()]:
+        params_d = {"params": params}
+    return {
         "kind": "declaration",
         "type": parse_type_decl(type_node),
         "declarators": [
@@ -218,14 +221,12 @@ def parse_function_decl(t):
                 "kind": "declarator",
                 "indirect_type":
                     {"kind": "function"}
-                    | parse_pointer(type_node, "func"),
+                    | parse_pointer(type_node, "func")
+                    | params_d,
                 "name": t.spelling,
             },
         ],
     }
-    if params := [parse_parameter(a) for a in t.get_arguments()]:
-        dict["declarators"]["indirect_type"]["params"] = params
-    return dict
 
 
 
@@ -283,14 +284,15 @@ def parse_field(t):
 
 
 def parse_struct_decl(t):
-    dict =  {
-            "kind": "declaration",
-            "type": {"kind": "struct", "name": t.spelling},
-        }
+    members_d = {}
     if members := [parse_field(a) for a in t.type.get_fields()]:
-            dict["members"] = members,
-    return dict
-
+        members_d = {"members": members}
+    return {
+            "kind": "declaration",
+            "type":
+                {"kind": "struct", "name": t.spelling}
+                | members_d,
+    }
 
 
 def parse_val(v):
