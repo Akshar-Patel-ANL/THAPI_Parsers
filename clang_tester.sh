@@ -1,5 +1,5 @@
 #!/bin/bash
-
+ret=0
 for header in ./unit_tests/*.h; do
     echo $header
     ruby emit_yaml.rb $header > ruby.out
