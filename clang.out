@@ -2,144 +2,48 @@
 kind: translation_unit
 entities:
 - kind: declaration
-  storage: :typedef
   type:
-    kind: float
-  declarators:
-  - kind: declarator
-    name: foo_float
-- kind: declaration
-  storage: :typedef
-  type:
-    kind: float
-    longness: 1
-  declarators:
-  - kind: declarator
-    name: foo_double
-- kind: declaration
-  storage: :typedef
-  type:
-    kind: float
-    longness: 2
-  declarators:
-  - kind: declarator
-    name: foo_long_double
-- kind: declaration
-  storage: :typedef
-  type:
-    kind: int
-  declarators:
-  - kind: declarator
-    name: foo_int
-- kind: declaration
-  storage: :typedef
-  type:
-    kind: int
-    unsigned: true
-  declarators:
-  - kind: declarator
-    name: foo_unsigned_int
-- kind: declaration
-  storage: :typedef
-  type:
-    kind: int
-  declarators:
-  - kind: declarator
-    name: foo_signed_int
-- kind: declaration
-  storage: :typedef
-  type:
-    kind: int
-    longness: -1
-  declarators:
-  - kind: declarator
-    name: foo_short
-- kind: declaration
-  storage: :typedef
-  type:
-    kind: int
-    longness: -1
-    unsigned: true
-  declarators:
-  - kind: declarator
-    name: foo_unsigned_short
-- kind: declaration
-  storage: :typedef
-  type:
-    kind: int
-    longness: -1
-  declarators:
-  - kind: declarator
-    name: foo_signed_short
-- kind: declaration
-  storage: :typedef
-  type:
-    kind: int
-    longness: 1
-  declarators:
-  - kind: declarator
-    name: foo_long
-- kind: declaration
-  storage: :typedef
-  type:
-    kind: int
-    longness: 1
-    unsigned: true
-  declarators:
-  - kind: declarator
-    name: foo_unsigned_long
-- kind: declaration
-  storage: :typedef
-  type:
-    kind: int
-    longness: 1
-  declarators:
-  - kind: declarator
-    name: foo_signed_long
-- kind: declaration
-  storage: :typedef
-  type:
-    kind: int
-    longness: 2
-  declarators:
-  - kind: declarator
-    name: foo_long_long
-- kind: declaration
-  storage: :typedef
-  type:
-    kind: int
-    longness: 2
-    unsigned: true
-  declarators:
-  - kind: declarator
-    name: foo_unsigned_long_long
-- kind: declaration
-  storage: :typedef
-  type:
-    kind: int
-    longness: 2
-  declarators:
-  - kind: declarator
-    name: foo_signed_long_long
-- kind: declaration
-  storage: :typedef
-  type:
-    kind: char
-  declarators:
-  - kind: declarator
-    name: foo_char
-- kind: declaration
-  storage: :typedef
-  type:
-    kind: char
-  declarators:
-  - kind: declarator
-    name: foo_unsigned_char
-- kind: declaration
-  storage: :typedef
-  type:
-    kind: char
-    signed: true
-  declarators:
-  - kind: declarator
-    name: foo_signed_char
+    kind: union
+    name: foo
+    members:
+    - kind: declaration
+      type:
+        kind: int
+      declarators:
+      - kind: declarator
+        name: bar
+    - kind: declaration
+      type:
+        kind: float
+      declarators:
+      - kind: declarator
+        name: bas
+    - kind: declaration
+      type:
+        kind: char
+      declarators:
+      - kind: declarator
+        indirect_type:
+          kind: array
+          length:
+            kind: int_literal
+            val: 10
+        name: bat
+    - kind: declaration
+      type:
+        kind: float
+      declarators:
+      - kind: declarator
+        indirect_type:
+          kind: pointer
+        name: baw
+    - kind: declaration
+      type:
+        kind: float
+      declarators:
+      - kind: declarator
+        indirect_type:
+          kind: pointer
+          type:
+            kind: pointer
+        name: boo
