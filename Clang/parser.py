@@ -43,8 +43,10 @@ def to_THAPI_decl(self):
 clang.cindex.Type.to_THAPI_decl = to_THAPI_decl
 
 
-def match_typedef_struct(struct, typedef):
-    return struct.spelling == typedef.underlying_typedef_type.get_declaration().spelling
+def match_typedef(target_node, potential_typedef_node):
+    if potential_typedef_node.kind == clang.cindex.CursorKind.TYPEDEF_DECL:
+        return target_node.spelling == potential_typedef_node.underlying_typedef_type.get_declaration().spelling
+    return False
 
 
 def merge_typedef_struct(struct, typedef):
@@ -55,6 +57,14 @@ def merge_typedef_struct(struct, typedef):
         "declarators": typedef["declarators"],
     }
 
+
+def merge_typedef_enum(enum, typedef):
+    return {
+        "kind": "declaration",
+        "storage": ":typedef",
+        "type": enum["type"],
+        "declarators": typedef["declarators"],
+    }
 
 def parse_translation_unit(t):
     # d_entities = defaultdict(list)
@@ -67,20 +77,22 @@ def parse_translation_unit(t):
             case clang.cindex.CursorKind.FUNCTION_DECL:
                 entities.append(parse_function_decl(c))
             case clang.cindex.CursorKind.TYPEDEF_DECL:
-                if (
-                    c.underlying_typedef_type.get_declaration().kind
-                    != clang.cindex.CursorKind.STRUCT_DECL
-                ):
+                if c.underlying_typedef_type.get_declaration().kind not in [clang.cindex.CursorKind.STRUCT_DECL, clang.cindex.CursorKind.ENUM_DECL]:
                     entities.append(parse_typedef_decl(c))
             case clang.cindex.CursorKind.STRUCT_DECL:
                 dict_struct = parse_struct_decl(c)
                 # Check if the struct is typedef. If yes, need to modify the dict
-                dict_typedef = next((parse_typedef_decl(c2) for c2 in t.get_children() if match_typedef_struct(c, c2)), None)
+                dict_typedef = next((parse_typedef_decl(c2) for c2 in t.get_children() if match_typedef(c, c2)), None)
                 if dict_typedef:
                     dict_struct = merge_typedef_struct(dict_struct, dict_typedef)
                 entities.append(dict_struct)
             case clang.cindex.CursorKind.ENUM_DECL:
-                entities.append(parse_enum_decl(c))
+                dict_enum = parse_enum_decl(c)
+                # Check if the enum is typedef. If yes, need to modify the dict
+                dict_typedef = next((parse_typedef_decl(c2) for c2 in t.get_children() if match_typedef(c, c2)), None)
+                if dict_typedef:
+                    dict_enum = merge_typedef_enum(dict_enum, dict_typedef)
+                entities.append(dict_enum)
             case _:
                 raise NotImplementedError(f"parse_translation_unit: #{k}")
     return {"kind": "translation_unit", "entities": entities}
