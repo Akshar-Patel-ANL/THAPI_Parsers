@@ -307,6 +307,7 @@ def parse_val(v):
 
 
 def parse_enum(t):
+    
     return {
         "kind": "enumerator",
         "name": t.spelling,
