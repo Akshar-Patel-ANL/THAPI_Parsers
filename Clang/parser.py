@@ -44,7 +44,7 @@ clang.cindex.Type.to_THAPI_decl = to_THAPI_decl
 
 
 def match_typedef(c, c2):
-    if c.kind == clang.cindex.CursorKind.TYPEDEF_DECL:
+    if c2.kind == clang.cindex.CursorKind.TYPEDEF_DECL:
         return c.spelling == c2.underlying_typedef_type.get_declaration().spelling
     return False
 
