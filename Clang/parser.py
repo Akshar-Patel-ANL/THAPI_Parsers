@@ -43,9 +43,9 @@ def to_THAPI_decl(self):
 clang.cindex.Type.to_THAPI_decl = to_THAPI_decl
 
 
-def match_typedef(c, c2):
-    if c2.kind == clang.cindex.CursorKind.TYPEDEF_DECL:
-        return c.spelling == c2.underlying_typedef_type.get_declaration().spelling
+def match_typedef(target_node, potential_typedef_node):
+    if potential_typedef_node.kind == clang.cindex.CursorKind.TYPEDEF_DECL:
+        return target_node.spelling == potential_typedef_node.underlying_typedef_type.get_declaration().spelling
     return False
 
 
