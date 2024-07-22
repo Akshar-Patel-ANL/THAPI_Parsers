@@ -1,0 +1,5 @@
+typedef enum hipGLDeviceList {
+    hipGLDeviceListAll = 1,
+    hipGLDeviceListCurrentFrame = 2,
+    hipGLDeviceListNextFrame = 3
+};
