@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "*.haha": "racket",
+        "poster_example": "c"
+    }
+}
