@@ -2,6 +2,7 @@ import clang.cindex
 import yaml
 import sys
 from collections import defaultdict
+import re
 
 clang.cindex.Config.set_library_file("/usr/lib/x86_64-linux-gnu/libclang-17.so.1")
 
@@ -306,7 +307,7 @@ def parse_val(v, hex=False):
 
 
 def is_hex(t):
-    return "0x" in source[t.location.line - 1]
+    return re.search(r'=\s*(-|)\s*(0x\s*)', source[t.location.line - 1], re.IGNORECASE)
 
 def parse_enum(t):
     return {
