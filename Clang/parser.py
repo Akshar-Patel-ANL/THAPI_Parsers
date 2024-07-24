@@ -307,7 +307,7 @@ def parse_val(v, hex=False):
 
 
 def is_hex(t):
-    return re.search(r'=\s*(-|)\s*(0x\s*)', source[t.location.line - 1], re.IGNORECASE)
+    return re.search(r'=[\s+-]*0x', source[t.location.line - 1], re.IGNORECASE)
 
 def parse_enum(t):
     return {
