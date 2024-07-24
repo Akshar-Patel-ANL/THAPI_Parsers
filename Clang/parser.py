@@ -2,6 +2,7 @@ import clang.cindex
 import yaml
 import sys
 from collections import defaultdict
+import re
 
 clang.cindex.Config.set_library_file("/usr/lib/x86_64-linux-gnu/libclang-17.so.1")
 
@@ -288,27 +289,31 @@ def parse_struct_decl(t):
     }
 
 
-def parse_val(v):
+def parse_val(v, hex=False):
+    hex_dict = {}
+    if hex:
+        hex_dict = {"format": ":hex"}
     if v < 0:
         return {
             "kind": "negative",
-            "expr": {
-                "kind": "int_literal",
-                "val": abs(v),
-            },
+            "expr":
+                {"kind": "int_literal"}
+                | hex_dict
+                | {"val": abs(v)}
+            ,
         }
     else:
-        return {
-            "kind": "int_literal",
-            "val": v,
-        }
+        return {"kind": "int_literal"} | hex_dict | {"val": v}
 
+
+def is_hex(t):
+    return re.search(r'=[\s+-]*0x', source[t.location.line - 1], re.IGNORECASE)
 
 def parse_enum(t):
     return {
         "kind": "enumerator",
         "name": t.spelling,
-        "val": parse_val(t.enum_value),
+        "val": parse_val(t.enum_value, is_hex(t)),
     }
 
 
@@ -336,6 +341,9 @@ def parse_union_decl(t):
 
 
 if __name__ == "__main__":
+    f = open(sys.argv[1])
+    source = f.readlines()
+
     t = clang.cindex.Index.create().parse(sys.argv[1], args=sys.argv[2:]).cursor
     # for w in t.diagnostics:
     #     print(f"WARNING: {w}")
