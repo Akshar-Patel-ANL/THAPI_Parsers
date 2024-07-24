@@ -46,7 +46,10 @@ clang.cindex.Type.to_THAPI_decl = to_THAPI_decl
 
 def match_typedef(target_node, potential_typedef_node):
     if potential_typedef_node.kind == clang.cindex.CursorKind.TYPEDEF_DECL:
-        return target_node.spelling == potential_typedef_node.underlying_typedef_type.get_declaration().spelling
+        return (
+            target_node.spelling
+            == potential_typedef_node.underlying_typedef_type.get_declaration().spelling
+        )
     return False
 
 
@@ -70,26 +73,51 @@ def parse_translation_unit(t):
             case clang.cindex.CursorKind.FUNCTION_DECL:
                 entities.append(parse_function_decl(c))
             case clang.cindex.CursorKind.TYPEDEF_DECL:
-                if c.underlying_typedef_type.get_declaration().kind not in [clang.cindex.CursorKind.STRUCT_DECL, clang.cindex.CursorKind.ENUM_DECL, clang.cindex.CursorKind.UNION_DECL]:
+                if c.underlying_typedef_type.get_declaration().kind not in [
+                    clang.cindex.CursorKind.STRUCT_DECL,
+                    clang.cindex.CursorKind.ENUM_DECL,
+                    clang.cindex.CursorKind.UNION_DECL,
+                ]:
                     entities.append(parse_typedef_decl(c))
             case clang.cindex.CursorKind.STRUCT_DECL:
                 dict_struct = parse_struct_decl(c)
                 # Check if the struct is typedef. If yes, need to modify the dict
-                dict_typedef = next((parse_typedef_decl(c2) for c2 in t.get_children() if match_typedef(c, c2)), None)
+                dict_typedef = next(
+                    (
+                        parse_typedef_decl(c2)
+                        for c2 in t.get_children()
+                        if match_typedef(c, c2)
+                    ),
+                    None,
+                )
                 if dict_typedef:
                     dict_struct = merge_typedef(dict_struct, dict_typedef)
                 entities.append(dict_struct)
             case clang.cindex.CursorKind.ENUM_DECL:
                 dict_enum = parse_enum_decl(c)
                 # Check if the enum is typedef. If yes, need to modify the dict
-                dict_typedef = next((parse_typedef_decl(c2) for c2 in t.get_children() if match_typedef(c, c2)), None)
+                dict_typedef = next(
+                    (
+                        parse_typedef_decl(c2)
+                        for c2 in t.get_children()
+                        if match_typedef(c, c2)
+                    ),
+                    None,
+                )
                 if dict_typedef:
                     dict_enum = merge_typedef(dict_enum, dict_typedef)
                 entities.append(dict_enum)
             case clang.cindex.CursorKind.UNION_DECL:
                 dict_union = parse_union_decl(c)
                 # Check if the enum is typedef. If yes, need to modify the dict
-                dict_typedef = next((parse_typedef_decl(c2) for c2 in t.get_children() if match_typedef(c, c2)), None)
+                dict_typedef = next(
+                    (
+                        parse_typedef_decl(c2)
+                        for c2 in t.get_children()
+                        if match_typedef(c, c2)
+                    ),
+                    None,
+                )
                 if dict_typedef:
                     dict_union = merge_typedef(dict_union, dict_typedef)
                 entities.append(dict_union)
@@ -107,11 +135,11 @@ def parse_type_decl(t):
                 case clang.cindex.CursorKind.TYPEDEF_DECL:
                     return {"kind": "custom_type", "name": d.spelling}
                 case clang.cindex.CursorKind.STRUCT_DECL:
-                    return {"kind": "struct", "name": d.spelling}
+                    return parse_struct_decl(d)["type"]
                 case clang.cindex.CursorKind.ENUM_DECL:
-                    return {"kind": "enum", "name": d.spelling}
+                    return parse_enum_decl(d)["type"]
                 case clang.cindex.CursorKind.UNION_DECL:
-                    return {"kind": "union", "name": d.spelling}
+                    return parse_union_decl(d)["type"]
                 case _:
                     raise NotImplementedError(f"parse_type_ELABORATED: #{ke}")
         case type_name if type_name in list(THAPI_types.keys()) + [
@@ -213,16 +241,13 @@ def parse_function_decl(t):
         "declarators": [
             {
                 "kind": "declarator",
-                "indirect_type":
-                    {"kind": "function"}
-                    | parse_pointer(type_node, "func")
-                    | params_d,
+                "indirect_type": {"kind": "function"}
+                | parse_pointer(type_node, "func")
+                | params_d,
                 "name": t.spelling,
             },
         ],
     }
-
-
 
 
 def parse_pointer(t, form):
@@ -277,15 +302,22 @@ def parse_field(t):
             }
 
 
+def extract_name(t):
+    if not re.search(r"\(unnamed at ", t.spelling):
+        return t.spelling
+    return None
+
+
 def parse_struct_decl(t):
     members_d = {}
     if members := [parse_field(a) for a in t.type.get_fields()]:
         members_d = {"members": members}
+    name_d = {}
+    if name := extract_name(t):
+        name_d = {"name": name}
     return {
-            "kind": "declaration",
-            "type":
-                {"kind": "struct", "name": t.spelling}
-                | members_d,
+        "kind": "declaration",
+        "type": {"kind": "struct"} | name_d | members_d,
     }
 
 
@@ -296,18 +328,15 @@ def parse_val(v, hex=False):
     if v < 0:
         return {
             "kind": "negative",
-            "expr":
-                {"kind": "int_literal"}
-                | hex_dict
-                | {"val": abs(v)}
-            ,
+            "expr": {"kind": "int_literal"} | hex_dict | {"val": abs(v)},
         }
     else:
         return {"kind": "int_literal"} | hex_dict | {"val": v}
 
 
 def is_hex(t):
-    return re.search(r'=[\s+-]*0x', source[t.location.line - 1], re.IGNORECASE)
+    return re.search(r"=[\s+-]*0x", source[t.location.line - 1], re.IGNORECASE)
+
 
 def parse_enum(t):
     return {
@@ -318,13 +347,14 @@ def parse_enum(t):
 
 
 def parse_enum_decl(t):
+    name_d = {}
+    if name := extract_name(t):
+        name_d = {"name": name}
     return {
         "kind": "declaration",
-        "type": {
-            "kind": "enum",
-            "name": t.spelling,
-            "members": [parse_enum(a) for a in t.get_children()],
-        },
+        "type": {"kind": "enum"}
+        | name_d
+        | {"members": [parse_enum(a) for a in t.get_children()]},
     }
 
 
@@ -332,11 +362,12 @@ def parse_union_decl(t):
     members_d = {}
     if members := [parse_field(a) for a in t.type.get_fields()]:
         members_d = {"members": members}
+    name_d = {}
+    if name := extract_name(t):
+        name_d = {"name": name}
     return {
         "kind": "declaration",
-        "type":
-            {"kind": "union", "name": t.spelling}
-            | members_d,
+        "type": {"kind": "union"} | name_d | members_d,
     }
 
 
@@ -358,7 +389,7 @@ if __name__ == "__main__":
             explicit_start=True,
             default_flow_style=False,
         ).strip()
-    ) 
+    )
 
 
 """TODO LIST
