@@ -3,6 +3,7 @@ import yaml
 import sys
 from collections import defaultdict
 import re
+from functools import cache
 
 clang.cindex.Config.set_library_file("/usr/lib/x86_64-linux-gnu/libclang-17.so.1")
 
@@ -319,10 +320,13 @@ def parse_val(v, hex=False):
     else:
         return {"kind": "int_literal"} | hex_dict | {"val": v}
 
+@cache
+def get_file_data(path):
+   with open(path, "r") as f:
+       return f.readlines()
 
 def is_hex(t):
-    with open(t.location.file.name, "r") as f:
-        source = f.readlines()  
+    source = get_file_data(t.location.file.name)
     return re.search(r"=[\s+-]*0x", source[t.location.line - 1], re.IGNORECASE)
 
 def parse_enum(t):
