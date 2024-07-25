@@ -108,6 +108,9 @@ def parse_translation_unit(t):
                 if dict_typedef:
                     dict_union = merge_typedef(dict_union, dict_typedef)
                 entities.append(dict_union)
+            case clang.cindex.CursorKind.NAMESPACE | clang.cindex.CursorKind.UNEXPOSED_DECL:
+                if d_list := parse_translation_unit(c):
+                    entities += d_list
             case _:
                 raise NotImplementedError(f"parse_translation_unit: #{k}")
     return {"kind": "translation_unit", "entities": entities}
