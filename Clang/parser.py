@@ -321,8 +321,9 @@ def parse_val(v, hex=False):
 
 
 def is_hex(t):
+    with open(t.location.file.name, "r") as f:
+        source = f.readlines()  
     return re.search(r"=[\s+-]*0x", source[t.location.line - 1], re.IGNORECASE)
-
 
 def parse_enum(t):
     return {
