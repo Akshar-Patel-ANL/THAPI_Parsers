@@ -1,0 +1,1 @@
+typedef struct ihipCtx_t* hipCtx_t;
