@@ -339,7 +339,7 @@ def parse_enum(t):
 
 def parse_enum_decl(t):
     members_d = {}
-    if members := [parse_field(a) for a in t.type.get_fields()]:
+    if members := [parse_enum(a) for a in t.get_children()]:
         members_d = {"members": members}
     name_d = {}
     if name := extract_name(t):
