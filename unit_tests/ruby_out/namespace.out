@@ -1,0 +1,135 @@
+---
+kind: translation_unit
+entities:
+- kind: declaration
+  type:
+    kind: void
+  declarators:
+  - kind: declarator
+    indirect_type:
+      kind: function
+      params:
+      - kind: parameter
+        type:
+          kind: int
+        name: a
+    name: foo1
+- kind: declaration
+  type:
+    kind: struct
+    name: hipUUID_t
+    members:
+    - kind: declaration
+      type:
+        kind: int
+      declarators:
+      - kind: declarator
+        name: test
+    - kind: declaration
+      type:
+        kind: char
+      declarators:
+      - kind: declarator
+        indirect_type:
+          kind: pointer
+        name: foo
+    - kind: declaration
+      type:
+        kind: float
+        longness: 1
+      declarators:
+      - kind: declarator
+        indirect_type:
+          kind: pointer
+          type:
+            kind: pointer
+        name: bas
+    - kind: declaration
+      type:
+        kind: float
+      declarators:
+      - kind: declarator
+        name: bar
+- kind: declaration
+  type:
+    kind: union
+    name: foo2
+    members:
+    - kind: declaration
+      type:
+        kind: int
+      declarators:
+      - kind: declarator
+        name: bar
+    - kind: declaration
+      type:
+        kind: float
+      declarators:
+      - kind: declarator
+        name: bas
+    - kind: declaration
+      type:
+        kind: char
+      declarators:
+      - kind: declarator
+        indirect_type:
+          kind: array
+          length:
+            kind: int_literal
+            val: 10
+        name: bat
+    - kind: declaration
+      type:
+        kind: float
+      declarators:
+      - kind: declarator
+        indirect_type:
+          kind: pointer
+        name: baw
+    - kind: declaration
+      type:
+        kind: float
+      declarators:
+      - kind: declarator
+        indirect_type:
+          kind: pointer
+          type:
+            kind: pointer
+        name: boo
+- kind: declaration
+  type:
+    kind: enum
+    name: bar1
+    members:
+    - kind: enumerator
+      name: ONE
+      val:
+        kind: negative
+        expr:
+          kind: int_literal
+          val: 1
+    - kind: enumerator
+      name: TWO
+      val:
+        kind: int_literal
+        val: 2
+    - kind: enumerator
+      name: THREE
+      val:
+        kind: int_literal
+        val: 3
+- kind: declaration
+  storage: :typedef
+  type:
+    kind: int
+  declarators:
+  - kind: declarator
+    name: bar2
+- kind: declaration
+  storage: :typedef
+  type:
+    kind: custom_type
+    name: bar2
+  declarators:
+  - kind: declarator
+    name: bar3

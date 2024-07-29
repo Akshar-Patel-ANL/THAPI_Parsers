@@ -1,11 +1,11 @@
-void foo(int a);
+void foo1(int a);
 struct hipUUID_t {
     int test;
     char *foo;
     double **bas;
     float bar;
 };
-union foo {
+union foo2 {
     int bar;
     float bas;
     char bat[10];
