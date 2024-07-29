@@ -338,6 +338,9 @@ def parse_enum(t):
 
 
 def parse_enum_decl(t):
+    members_d = {}
+    if members := [parse_enum(a) for a in t.get_children()]:
+        members_d = {"members": members}
     name_d = {}
     if name := extract_name(t):
         name_d = {"name": name}
@@ -345,7 +348,7 @@ def parse_enum_decl(t):
         "kind": "declaration",
         "type": {"kind": "enum"}
         | name_d
-        | {"members": [parse_enum(a) for a in t.get_children()]},
+        | members_d,
     }
 
 
