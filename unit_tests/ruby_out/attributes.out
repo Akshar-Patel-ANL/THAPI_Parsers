@@ -1,0 +1,22 @@
+---
+kind: translation_unit
+entities:
+- kind: declaration
+  storage: :typedef
+  type:
+    kind: enum
+    name: hipError_t
+    members:
+    - kind: enumerator
+      name: hipSuccess
+      val:
+        kind: int_literal
+        val: 0
+    - kind: enumerator
+      name: hipErrorInvalidValue
+      val:
+        kind: int_literal
+        val: 1
+  declarators:
+  - kind: declarator
+    name: hipError_t

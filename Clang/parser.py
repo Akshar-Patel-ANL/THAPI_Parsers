@@ -223,7 +223,7 @@ def parse_typedef_decl(t):
 def parse_function_decl(t):
     type_node = t.type.get_result()
     params_d = {}
-    if params := [parse_parameter(a) for a in t.get_arguments()]:
+    if params := [parse_parameter(a) for a in t.get_arguments() if not a.kind.is_attribute()]:
         params_d = {"params": params}
     return {
         "kind": "declaration",
@@ -281,6 +281,7 @@ def parse_field(t):
                 ],
             }
         case _:
+            # print(t.location)
             return {
                 "kind": "declaration",
                 "type": parse_type_decl(t.type),
@@ -342,7 +343,7 @@ def parse_enum(t):
 
 def parse_enum_decl(t):
     members_d = {}
-    if members := [parse_enum(a) for a in t.get_children()]:
+    if members := [parse_enum(a) for a in t.get_children() if not a.kind.is_attribute()]:
         members_d = {"members": members}
     name_d = {}
     if name := extract_name(t):
@@ -357,7 +358,7 @@ def parse_enum_decl(t):
 
 def parse_union_decl(t):
     members_d = {}
-    if members := [parse_field(a) for a in t.type.get_fields()]:
+    if members := [parse_field(a) for a in t.type.get_fields() if not a.kind.is_attribute()]:
         members_d = {"members": members}
     name_d = {}
     if name := extract_name(t):
