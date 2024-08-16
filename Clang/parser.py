@@ -27,22 +27,10 @@ THAPI_types = {
 }
 
 
-def to_THAPI_param(self):
-    if self.kind == clang.cindex.TypeKind.POINTER:
-        return {"kind": "pointer", "type": to_THAPI_param(self.get_pointee())}
+def to_THAPI(self):
     return THAPI_types[self.kind]
 
-
-clang.cindex.Type.to_THAPI_param = to_THAPI_param
-
-
-def to_THAPI_decl(self):
-    if self.kind == clang.cindex.TypeKind.POINTER:
-        return to_THAPI_decl(self.get_pointee())
-    return THAPI_types[self.kind]
-
-
-clang.cindex.Type.to_THAPI_decl = to_THAPI_decl
+clang.cindex.Type.to_THAPI = to_THAPI
 
 
 def match_typedef(target_node, potential_typedef_node):
@@ -132,10 +120,10 @@ def parse_type_decl(t):
                     return parse_union_decl(d)["type"]
                 case _:
                     raise NotImplementedError(f"parse_type_ELABORATED: #{ke}")
-        case type_name if type_name in list(THAPI_types.keys()) + [
-            clang.cindex.TypeKind.POINTER
-        ]:
-            return t.to_THAPI_decl()
+        case type_name if type_name in list(THAPI_types.keys()):
+            return t.to_THAPI()
+        case clang.cindex.TypeKind.POINTER:
+            return parse_type_decl(t.get_pointee())
         case clang.cindex.TypeKind.INCOMPLETEARRAY:
             if t.element_type.kind in [
                 clang.cindex.TypeKind.INCOMPLETEARRAY,
@@ -180,10 +168,10 @@ def parse_type_param(t):
                     return {"kind": "union", "name": d.spelling}
                 case _:
                     raise NotImplementedError(f"parse_type_ELABORATED: #{ke}")
-        case type_name if type_name in list(THAPI_types.keys()) + [
-            clang.cindex.TypeKind.POINTER
-        ]:
-            return t.to_THAPI_param()
+        case type_name if type_name in list(THAPI_types.keys()):
+            return t.to_THAPI()
+        case clang.cindex.TypeKind.POINTER:
+            return {"kind": "pointer", "type": parse_type_param(t.get_pointee())}
         case clang.cindex.TypeKind.INCOMPLETEARRAY:
             return {"kind": "array", "type": parse_type_param(t.element_type)}
         case clang.cindex.TypeKind.CONSTANTARRAY:

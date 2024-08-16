@@ -1,0 +1,6 @@
+struct foo1 {
+    enum hipUUID_t {ONE = 1} *bar;
+};
+union foo2 {
+    enum hipUUID {ONE = 1} *bar;
+};
